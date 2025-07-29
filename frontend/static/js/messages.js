@@ -213,6 +213,7 @@ window.Messages = {
     setupEventListeners() {
         // Send message button
         document.getElementById('send-chat-btn')?.addEventListener('click', () => this.sendMessage());
+        document.getElementById('mobile-send-chat-btn')?.addEventListener('click', () => this.sendMessage());
 
         // Enter key to send message
         document.getElementById('chat-input')?.addEventListener('keypress', (e) => {
@@ -222,16 +223,55 @@ window.Messages = {
             }
         });
 
+        document.getElementById('mobile-chat-input')?.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                this.sendMessage();
+            }
+        });
+
+        // New message modal
+        document.getElementById('new-message-btn')?.addEventListener('click', () => {
+            document.getElementById('new-message-modal')?.classList.remove('hidden');
+            this.loadUsersForMessaging();
+        });
+
+        document.getElementById('mobile-new-message-btn')?.addEventListener('click', () => {
+            document.getElementById('new-message-modal')?.classList.remove('hidden');
+            this.loadUsersForMessaging();
+        });
+
+        // Send new message
+        document.getElementById('send-message-btn')?.addEventListener('click', () => this.sendNewMessage());
+
+        // Close chat
+        document.getElementById('close-chat')?.addEventListener('click', () => {
+            document.getElementById('chat-window')?.classList.add('hidden');
+        });
+
+        document.getElementById('close-mobile-chat')?.addEventListener('click', () => {
+            document.getElementById('mobile-chat-panel')?.classList.add('hidden');
+        });
+
+        // Mobile messages panel
+        document.getElementById('mobile-messages-btn')?.addEventListener('click', () => {
+            document.getElementById('mobile-messages-panel')?.classList.remove('hidden');
+        });
+
+        document.getElementById('close-mobile-messages')?.addEventListener('click', () => {
+            document.getElementById('mobile-messages-panel')?.classList.add('hidden');
+        });
+
         // Typing indicators
         document.getElementById('chat-input')?.addEventListener('input', (e) => {
             if (e.target.value.trim()) {
                 this.startTyping();
-                
+
                 // Clear existing timer
                 if (this.typingTimer) {
                     clearTimeout(this.typingTimer);
                 }
-                
+
                 // Set timer to stop typing after 2 seconds of inactivity
                 this.typingTimer = setTimeout(() => {
                     this.stopTyping();
@@ -240,6 +280,66 @@ window.Messages = {
                 this.stopTyping();
             }
         });
+    },
+
+    async loadUsersForMessaging() {
+        try {
+            const response = await fetch('/api/users');
+            if (response.ok) {
+                const users = await response.json();
+                const select = document.getElementById('message-recipient');
+                if (select) {
+                    select.innerHTML = '<option value="">Select a user</option>';
+                    users.forEach(user => {
+                        const option = document.createElement('option');
+                        option.value = user.id;
+                        option.textContent = user.nickname;
+                        select.appendChild(option);
+                    });
+                }
+            }
+        } catch (error) {
+            console.error('Error loading users:', error);
+        }
+    },
+
+    async sendNewMessage() {
+        const recipientId = document.getElementById('message-recipient').value;
+        const content = document.getElementById('message-content').value;
+
+        if (!recipientId || !content) {
+            showNotification('Please select a recipient and enter a message', 'error');
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/messages', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    recipientId: parseInt(recipientId),
+                    content
+                }),
+            });
+
+            if (response.ok) {
+                document.getElementById('message-content').value = '';
+                document.getElementById('new-message-modal')?.classList.add('hidden');
+                showNotification('Message sent successfully!');
+                this.loadConversations();
+            } else {
+                showNotification('Failed to send message', 'error');
+            }
+        } catch (error) {
+            showNotification('Error sending message', 'error');
+        }
+    },
+
+    async loadConversations() {
+        // This would load the conversation list
+        // Implementation depends on your backend API structure
     }
 };
 
