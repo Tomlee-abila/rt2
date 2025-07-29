@@ -123,7 +123,19 @@ window.Auth = {
 
         // Profile edit
         document.getElementById('edit-profile-btn')?.addEventListener('click', () => {
+            this.loadProfileData();
             DOM.profileModal.classList.remove('hidden');
+        });
+
+        // Save profile changes
+        document.getElementById('save-profile-btn')?.addEventListener('click', this.handleSaveProfile);
+
+        // Avatar color selection for edit profile
+        document.querySelectorAll('[data-edit-color]').forEach(button => {
+            button.addEventListener('click', (e) => {
+                document.querySelectorAll('[data-edit-color]').forEach(b => b.classList.remove('ring-2', 'ring-offset-2', 'ring-blue-500'));
+                e.target.classList.add('ring-2', 'ring-offset-2', 'ring-blue-500');
+            });
         });
 
         // Avatar color selection
@@ -206,6 +218,76 @@ window.Auth = {
 
         errorDiv.classList.add('hidden');
         Auth.register(formData, password);
+    },
+
+    loadProfileData() {
+        if (!ForumApp.currentUser) return;
+
+        const user = ForumApp.currentUser;
+        document.getElementById('edit-firstname').value = user.firstName || '';
+        document.getElementById('edit-lastname').value = user.lastName || '';
+        document.getElementById('edit-nickname').value = user.nickname || '';
+        document.getElementById('edit-age').value = user.age || '';
+        document.getElementById('edit-gender').value = user.gender || '';
+
+        // Set selected avatar color
+        document.querySelectorAll('[data-edit-color]').forEach(button => {
+            button.classList.remove('ring-2', 'ring-offset-2', 'ring-blue-500');
+            if (button.dataset.editColor === user.avatarColor) {
+                button.classList.add('ring-2', 'ring-offset-2', 'ring-blue-500');
+            }
+        });
+    },
+
+    handleSaveProfile() {
+        const formData = {
+            firstName: document.getElementById('edit-firstname').value,
+            lastName: document.getElementById('edit-lastname').value,
+            nickname: document.getElementById('edit-nickname').value,
+            age: parseInt(document.getElementById('edit-age').value),
+            gender: document.getElementById('edit-gender').value,
+            avatarColor: document.querySelector('[data-edit-color].ring-2')?.dataset.editColor || 'blue-500'
+        };
+
+        // Basic validation
+        if (!formData.firstName || !formData.lastName || !formData.nickname) {
+            showNotification('Please fill in required fields', 'error');
+            return;
+        }
+
+        if (formData.age && (formData.age < 13 || formData.age > 120)) {
+            showNotification('Age must be between 13 and 120', 'error');
+            return;
+        }
+
+        Auth.updateProfile(formData);
+    },
+
+    async updateProfile(profileData) {
+        try {
+            const response = await fetch('/api/profile', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(profileData),
+            });
+
+            if (response.ok) {
+                const updatedUser = await response.json();
+                ForumApp.currentUser = { ...ForumApp.currentUser, ...updatedUser };
+
+                // Update UI
+                showLoggedInUI();
+                DOM.profileModal?.classList.add('hidden');
+                showNotification('Profile updated successfully!');
+            } else {
+                const error = await response.text();
+                showNotification(error || 'Failed to update profile', 'error');
+            }
+        } catch (error) {
+            showNotification('Error updating profile', 'error');
+        }
     },
 
     handleLogout() {

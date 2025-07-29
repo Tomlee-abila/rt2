@@ -90,8 +90,7 @@ window.WebSocketClient = {
 
     handleOnlineUsers(data) {
         ForumApp.onlineUsers = data.users || [];
-        this.updateOnlineUsersList();
-        this.updateOnlineCount();
+        updateOnlineCount();
     },
 
     handleUserJoined(data) {

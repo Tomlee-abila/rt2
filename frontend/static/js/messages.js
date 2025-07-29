@@ -110,7 +110,7 @@ window.Messages = {
     },
 
     async sendMessage() {
-        const messageInput = document.getElementById('chat-input');
+        const messageInput = document.getElementById('chat-input') || document.getElementById('mobile-chat-input');
         const content = messageInput?.value.trim();
 
         if (!content || !ForumApp.currentChatUser) {
@@ -119,9 +119,15 @@ window.Messages = {
 
         // Send via WebSocket
         const success = WebSocketClient.sendPrivateMessage(ForumApp.currentChatUser.id, content);
-        
+
         if (success) {
             messageInput.value = '';
+            // Clear both inputs
+            const desktopInput = document.getElementById('chat-input');
+            const mobileInput = document.getElementById('mobile-chat-input');
+            if (desktopInput) desktopInput.value = '';
+            if (mobileInput) mobileInput.value = '';
+
             this.stopTyping();
         } else {
             showNotification('Failed to send message', 'error');
@@ -129,13 +135,18 @@ window.Messages = {
     },
 
     handleNewMessage(messageData) {
+        // Update conversations list
+        this.updateConversationsList(messageData);
+
         // Add message to chat if it's for the current conversation
-        if (ForumApp.currentChatUser && 
-            (messageData.senderId === ForumApp.currentChatUser.id || 
+        if (ForumApp.currentChatUser &&
+            (messageData.senderId === ForumApp.currentChatUser.id ||
              messageData.recipientId === ForumApp.currentChatUser.id)) {
-            
+
             const messagesContainer = document.getElementById('chat-messages');
-            if (messagesContainer) {
+            const mobileMessagesContainer = document.getElementById('mobile-chat-messages');
+
+            if (messagesContainer || mobileMessagesContainer) {
                 const messageElement = this.createMessageElement({
                     id: messageData.id,
                     senderId: messageData.senderId,
@@ -338,8 +349,55 @@ window.Messages = {
     },
 
     async loadConversations() {
-        // This would load the conversation list
-        // Implementation depends on your backend API structure
+        try {
+            const response = await fetch('/api/conversations');
+            if (response.ok) {
+                const conversations = await response.json();
+                ForumApp.conversations = conversations;
+                loadConversations(); // Update UI
+            }
+        } catch (error) {
+            console.error('Error loading conversations:', error);
+        }
+    },
+
+    updateConversationsList(messageData) {
+        // Find or create conversation
+        let conversation = ForumApp.conversations?.find(c =>
+            c.with === messageData.senderNickname || c.with === messageData.recipientNickname
+        );
+
+        if (!conversation) {
+            const otherUser = messageData.senderId === ForumApp.currentUser?.id ?
+                { nickname: messageData.recipientNickname, id: messageData.recipientId } :
+                { nickname: messageData.senderNickname, id: messageData.senderId };
+
+            conversation = {
+                id: Date.now(),
+                with: otherUser.nickname,
+                withColor: 'blue-500', // Default color
+                withInitials: otherUser.nickname.substring(0, 2).toUpperCase(),
+                lastMessage: messageData.content,
+                time: 'now',
+                unread: messageData.senderId !== ForumApp.currentUser?.id,
+                messages: []
+            };
+
+            ForumApp.conversations = ForumApp.conversations || [];
+            ForumApp.conversations.unshift(conversation);
+        } else {
+            // Update existing conversation
+            conversation.lastMessage = messageData.content;
+            conversation.time = 'now';
+            conversation.unread = messageData.senderId !== ForumApp.currentUser?.id;
+
+            // Move to top
+            ForumApp.conversations = ForumApp.conversations.filter(c => c.id !== conversation.id);
+            ForumApp.conversations.unshift(conversation);
+        }
+
+        // Update UI
+        loadConversations();
     }
 };
 

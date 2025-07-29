@@ -89,6 +89,37 @@ function setupGlobalEventListeners() {
     document.getElementById('welcome-register-btn')?.addEventListener('click', () => {
         DOM.registerModal?.classList.remove('hidden');
     });
+
+    // User menu dropdown
+    document.getElementById('user-menu-button')?.addEventListener('click', () => {
+        const dropdown = document.getElementById('user-dropdown');
+        dropdown?.classList.toggle('hidden');
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+        const userMenu = document.getElementById('user-menu-container');
+        const dropdown = document.getElementById('user-dropdown');
+        if (userMenu && !userMenu.contains(e.target)) {
+            dropdown?.classList.add('hidden');
+        }
+    });
+
+    // Mobile bottom navigation
+    document.getElementById('mobile-categories-btn')?.addEventListener('click', toggleMobileMenu);
+    document.getElementById('mobile-home-btn')?.addEventListener('click', () => {
+        // Show main forum content
+        document.getElementById('mobile-messages-panel')?.classList.add('hidden');
+        document.getElementById('mobile-chat-panel')?.classList.add('hidden');
+    });
+
+    document.getElementById('mobile-profile-btn')?.addEventListener('click', () => {
+        if (ForumApp.currentUser) {
+            DOM.profileModal?.classList.remove('hidden');
+        } else {
+            DOM.loginModal?.classList.remove('hidden');
+        }
+    });
 }
 
 function closeModals() {
@@ -108,10 +139,17 @@ function showLoggedInUI() {
     DOM.forumContent?.classList.remove('hidden');
     DOM.authButtons?.classList.add('hidden');
     DOM.userMenuContainer?.classList.remove('hidden');
-    
+    document.getElementById('floating-logout')?.classList.remove('hidden');
+
     if (ForumApp.currentUser) {
         DOM.usernameDisplay.textContent = ForumApp.currentUser.nickname;
-        DOM.userAvatar.style.backgroundColor = `var(--${ForumApp.currentUser.avatarColor})`;
+        const initials = ForumApp.currentUser.nickname.substring(0, 2).toUpperCase();
+        DOM.userAvatar.textContent = initials;
+        DOM.userAvatar.className = `w-8 h-8 rounded-full bg-${ForumApp.currentUser.avatarColor || 'blue-500'} flex items-center justify-center text-sm font-semibold text-white`;
+
+        // Update online count and load conversations
+        updateOnlineCount();
+        loadConversations();
     }
 }
 
@@ -120,6 +158,7 @@ function showLoggedOutUI() {
     DOM.forumContent?.classList.add('hidden');
     DOM.authButtons?.classList.remove('hidden');
     DOM.userMenuContainer?.classList.add('hidden');
+    document.getElementById('floating-logout')?.classList.add('hidden');
 }
 
 // Notification system
@@ -261,6 +300,116 @@ function initializeCategories() {
     }
 }
 
+// Online users management
+function updateOnlineCount() {
+    const count = ForumApp.onlineUsers?.length || 0;
+    const onlineCountElement = document.getElementById('online-count');
+    if (onlineCountElement) {
+        onlineCountElement.textContent = `${count} online`;
+        onlineCountElement.classList.toggle('hidden', count === 0);
+    }
+
+    // Update online users list
+    const onlineUsersList = document.getElementById('online-users-list');
+    if (onlineUsersList) {
+        onlineUsersList.innerHTML = '';
+        ForumApp.onlineUsers?.forEach(user => {
+            const li = document.createElement('li');
+            li.className = 'flex items-center space-x-2 p-2 hover:bg-gray-50 rounded cursor-pointer';
+            li.innerHTML = `
+                <div class="w-6 h-6 rounded-full bg-${user.avatarColor || 'blue-500'} flex items-center justify-center text-xs text-white">
+                    ${user.nickname?.substring(0, 2).toUpperCase() || 'U'}
+                </div>
+                <span class="text-sm text-gray-700">${user.nickname}</span>
+                <div class="w-2 h-2 bg-green-500 rounded-full ml-auto"></div>
+            `;
+            li.addEventListener('click', () => startPrivateChat(user));
+            onlineUsersList.appendChild(li);
+        });
+    }
+}
+
+// Conversations management
+function loadConversations() {
+    const conversationsList = document.getElementById('conversations-list');
+    const mobileConversationsList = document.getElementById('mobile-conversations-list');
+
+    if (conversationsList) {
+        conversationsList.innerHTML = '';
+        ForumApp.conversations?.forEach(conversation => {
+            const div = document.createElement('div');
+            div.className = `p-3 hover:bg-gray-50 rounded cursor-pointer border-l-2 ${conversation.unread ? 'border-blue-500 bg-blue-50' : 'border-transparent'}`;
+            div.innerHTML = `
+                <div class="flex items-center space-x-2 mb-1">
+                    <div class="w-6 h-6 rounded-full bg-${conversation.withColor} flex items-center justify-center text-xs text-white">
+                        ${conversation.withInitials}
+                    </div>
+                    <span class="font-medium text-sm">${conversation.with}</span>
+                    <span class="text-xs text-gray-500 ml-auto">${conversation.time}</span>
+                </div>
+                <p class="text-sm text-gray-600 truncate">${conversation.lastMessage}</p>
+            `;
+            div.addEventListener('click', () => openChat(conversation));
+            conversationsList.appendChild(div);
+        });
+    }
+
+    // Update mobile conversations list similarly
+    if (mobileConversationsList) {
+        mobileConversationsList.innerHTML = conversationsList?.innerHTML || '';
+    }
+}
+
+function startPrivateChat(user) {
+    // Find existing conversation or create new one
+    let conversation = ForumApp.conversations?.find(c => c.with === user.nickname);
+    if (!conversation) {
+        conversation = {
+            id: Date.now(),
+            with: user.nickname,
+            withColor: user.avatarColor,
+            withInitials: user.nickname.substring(0, 2).toUpperCase(),
+            lastMessage: '',
+            time: 'now',
+            unread: false,
+            messages: []
+        };
+        ForumApp.conversations = ForumApp.conversations || [];
+        ForumApp.conversations.push(conversation);
+    }
+    openChat(conversation);
+}
+
+function openChat(conversation) {
+    ForumApp.currentChatUser = conversation;
+
+    // Update chat window
+    const chatWindow = document.getElementById('chat-window');
+    const chatAvatar = document.getElementById('chat-avatar');
+    const chatUsername = document.getElementById('chat-username');
+
+    if (chatWindow && chatAvatar && chatUsername) {
+        chatAvatar.className = `w-8 h-8 rounded-full bg-${conversation.withColor} flex items-center justify-center text-white`;
+        chatAvatar.textContent = conversation.withInitials;
+        chatUsername.textContent = conversation.with;
+        chatWindow.classList.remove('hidden');
+
+        // Load messages for this conversation
+        Messages.displayMessages(conversation.messages || []);
+    }
+
+    // Update mobile chat panel similarly
+    const mobileChatPanel = document.getElementById('mobile-chat-panel');
+    const mobileChatAvatar = document.getElementById('mobile-chat-avatar');
+    const mobileChatUsername = document.getElementById('mobile-chat-username');
+
+    if (mobileChatPanel && mobileChatAvatar && mobileChatUsername) {
+        mobileChatAvatar.className = `w-8 h-8 rounded-full bg-${conversation.withColor} flex items-center justify-center text-white`;
+        mobileChatAvatar.textContent = conversation.withInitials;
+        mobileChatUsername.textContent = conversation.with;
+    }
+}
+
 // Export DOM and utility functions for other modules
 window.DOM = DOM;
 window.showNotification = showNotification;
@@ -272,3 +421,7 @@ window.escapeHtml = escapeHtml;
 window.getSelectedAvatarColor = getSelectedAvatarColor;
 window.closeModals = closeModals;
 window.toggleMobileMenu = toggleMobileMenu;
+window.updateOnlineCount = updateOnlineCount;
+window.loadConversations = loadConversations;
+window.startPrivateChat = startPrivateChat;
+window.openChat = openChat;
