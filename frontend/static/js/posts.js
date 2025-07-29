@@ -19,13 +19,13 @@ window.Posts = {
     },
 
     displayPosts(posts) {
-        const postsContainer = document.getElementById('posts-container');
-        if (!postsContainer) return;
+        const threadsContainer = document.getElementById('threads-container');
+        if (!threadsContainer) return;
 
-        postsContainer.innerHTML = '';
+        threadsContainer.innerHTML = '';
 
         if (posts.length === 0) {
-            postsContainer.innerHTML = `
+            threadsContainer.innerHTML = `
                 <div class="text-center py-8 text-gray-500">
                     <p>No posts in this category yet.</p>
                     <p>Be the first to start a discussion!</p>
@@ -36,18 +36,39 @@ window.Posts = {
 
         posts.forEach(post => {
             const postElement = this.createPostElement(post);
-            postsContainer.appendChild(postElement);
+            threadsContainer.appendChild(postElement);
         });
     },
 
     createPostElement(post) {
         const postDiv = document.createElement('div');
-        postDiv.className = 'bg-white rounded-lg shadow-md p-6 mb-4 hover:shadow-lg transition-shadow cursor-pointer';
-        postDiv.onclick = () => this.openPost(post.id);
+        postDiv.className = 'border-b border-gray-200 pb-4 mb-4 hover:bg-gray-50 p-3 rounded cursor-pointer transition-colors';
+        postDiv.onclick = () => this.showPost(post.id);
+
+        const avatarColor = post.authorColor || 'blue-500';
+        const initials = post.authorInitials || post.author?.substring(0, 2).toUpperCase() || 'U';
 
         postDiv.innerHTML = `
-            <div class="flex items-start justify-between">
-                <div class="flex-1">
+            <div class="flex items-start space-x-3">
+                <div class="w-10 h-10 rounded-full bg-${avatarColor} flex items-center justify-center text-white font-semibold text-sm">
+                    ${initials}
+                </div>
+                <div class="flex-1 min-w-0">
+                    <h3 class="font-medium text-gray-900 hover:text-blue-600 transition-colors">${escapeHtml(post.title)}</h3>
+                    <div class="flex items-center space-x-2 text-sm text-gray-500 mt-1">
+                        <span>${escapeHtml(post.author)}</span>
+                        <span>•</span>
+                        <span>${formatTime(post.created_at)}</span>
+                        <span>•</span>
+                        <span class="bg-gray-100 px-2 py-1 rounded text-xs">${escapeHtml(post.category)}</span>
+                    </div>
+                    <p class="text-gray-600 text-sm mt-2 line-clamp-2">${escapeHtml(post.content?.substring(0, 150) || '')}${post.content?.length > 150 ? '...' : ''}</p>
+                    <div class="flex items-center space-x-4 mt-2 text-sm text-gray-500">
+                        <span>${post.reply_count || 0} replies</span>
+                        <span>Last activity: ${formatTime(post.updated_at || post.created_at)}</span>
+                    </div>
+                </div>
+            </div>
                     <h3 class="text-lg font-semibold text-gray-900 mb-2">${escapeHtml(post.title)}</h3>
                     <p class="text-gray-600 mb-3 line-clamp-3">${escapeHtml(post.content)}</p>
                     <div class="flex items-center text-sm text-gray-500">
@@ -65,6 +86,50 @@ window.Posts = {
         return postDiv;
     },
 
+    showPost(postId) {
+        // Hide threads container and show thread detail
+        document.getElementById('threads-container')?.parentElement.classList.add('hidden');
+        document.getElementById('thread-detail')?.classList.remove('hidden');
+
+        // Load post details
+        this.loadPostDetails(postId);
+    },
+
+    async loadPostDetails(postId) {
+        try {
+            const response = await fetch(`/api/posts/${postId}`);
+            if (response.ok) {
+                const post = await response.json();
+                this.displayPostDetails(post);
+                this.loadComments(postId);
+            } else {
+                showNotification('Failed to load post details', 'error');
+            }
+        } catch (error) {
+            showNotification('Error loading post details', 'error');
+        }
+    },
+
+    displayPostDetails(post) {
+        const avatarColor = post.authorColor || 'blue-500';
+        const initials = post.authorInitials || post.author?.substring(0, 2).toUpperCase() || 'U';
+
+        document.getElementById('thread-detail-title').textContent = post.title;
+        document.getElementById('thread-detail-author').textContent = post.author;
+        document.getElementById('thread-detail-time').textContent = formatTime(post.created_at);
+        document.getElementById('thread-detail-content').textContent = post.content;
+
+        const avatarElement = document.getElementById('thread-detail-avatar');
+        avatarElement.className = `w-6 h-6 rounded-full bg-${avatarColor} flex items-center justify-center text-xs text-white`;
+        avatarElement.textContent = initials;
+    },
+
+    clearThreadForm() {
+        document.getElementById('thread-title').value = '';
+        document.getElementById('thread-content').value = '';
+        document.getElementById('thread-category').value = '';
+    },
+
     getCategoryColor(category) {
         const colors = {
             'general': 'blue',
@@ -75,15 +140,16 @@ window.Posts = {
         return colors[category] || 'gray';
     },
 
-    async openPost(postId) {
+    async showPost(postId) {
         ForumApp.currentThreadId = postId;
-        
-        // Load comments
+
+        // Hide threads container and show thread detail
+        document.getElementById('threads-container')?.parentElement.classList.add('hidden');
+        document.getElementById('thread-detail')?.classList.remove('hidden');
+
+        // Load post details and comments
+        await this.loadPostDetails(postId);
         await this.loadComments(postId);
-        
-        // Show thread view
-        document.getElementById('forum-main').classList.add('hidden');
-        document.getElementById('thread-view').classList.remove('hidden');
     },
 
     async loadComments(postId) {
@@ -101,15 +167,15 @@ window.Posts = {
     },
 
     displayComments(comments) {
-        const commentsContainer = document.getElementById('comments-container');
-        if (!commentsContainer) return;
+        const repliesContainer = document.getElementById('thread-replies');
+        if (!repliesContainer) return;
 
-        commentsContainer.innerHTML = '';
+        repliesContainer.innerHTML = '';
 
         if (comments.length === 0) {
-            commentsContainer.innerHTML = `
+            repliesContainer.innerHTML = `
                 <div class="text-center py-4 text-gray-500">
-                    <p>No comments yet. Be the first to comment!</p>
+                    <p>No replies yet. Be the first to reply!</p>
                 </div>
             `;
             return;
@@ -117,7 +183,7 @@ window.Posts = {
 
         comments.forEach(comment => {
             const commentElement = this.createCommentElement(comment);
-            commentsContainer.appendChild(commentElement);
+            repliesContainer.appendChild(commentElement);
         });
     },
 
@@ -139,11 +205,11 @@ window.Posts = {
     },
 
     async createPost() {
-        const title = document.getElementById('post-title').value;
-        const content = document.getElementById('post-content').value;
-        const category = document.getElementById('post-category').value;
+        const title = document.getElementById('thread-title').value;
+        const content = document.getElementById('thread-content').value;
+        const category = document.getElementById('thread-category').value;
 
-        if (!title || !content) {
+        if (!title || !content || !category) {
             showNotification('Please fill in all fields', 'error');
             return;
         }
@@ -158,8 +224,8 @@ window.Posts = {
             });
 
             if (response.ok) {
-                document.getElementById('post-title').value = '';
-                document.getElementById('post-content').value = '';
+                this.clearThreadForm();
+                document.getElementById('thread-form')?.classList.add('hidden');
                 showNotification('Post created successfully!');
                 this.loadPosts();
             } else {
@@ -171,10 +237,10 @@ window.Posts = {
     },
 
     async createComment() {
-        const content = document.getElementById('comment-content').value;
+        const content = document.getElementById('reply-content').value;
 
         if (!content) {
-            showNotification('Please enter a comment', 'error');
+            showNotification('Please enter a reply', 'error');
             return;
         }
 
@@ -184,21 +250,21 @@ window.Posts = {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ 
-                    postId: ForumApp.currentThreadId, 
-                    content 
+                body: JSON.stringify({
+                    postId: ForumApp.currentThreadId,
+                    content
                 }),
             });
 
             if (response.ok) {
-                document.getElementById('comment-content').value = '';
-                showNotification('Comment added successfully!');
+                document.getElementById('reply-content').value = '';
+                showNotification('Reply added successfully!');
                 this.loadComments(ForumApp.currentThreadId);
             } else {
-                showNotification('Failed to add comment', 'error');
+                showNotification('Failed to add reply', 'error');
             }
         } catch (error) {
-            showNotification('Error adding comment', 'error');
+            showNotification('Error adding reply', 'error');
         }
     },
 
@@ -216,16 +282,27 @@ window.Posts = {
             });
         });
 
+        // New thread button
+        document.getElementById('new-thread-btn')?.addEventListener('click', () => {
+            document.getElementById('thread-form')?.classList.remove('hidden');
+        });
+
+        // Cancel thread button
+        document.getElementById('cancel-thread-btn')?.addEventListener('click', () => {
+            document.getElementById('thread-form')?.classList.add('hidden');
+            this.clearThreadForm();
+        });
+
         // Post creation
         document.getElementById('post-thread-btn')?.addEventListener('click', () => this.createPost());
 
         // Comment creation
         document.getElementById('post-reply-btn')?.addEventListener('click', () => this.createComment());
 
-        // Back to forum button
-        document.getElementById('back-to-forum')?.addEventListener('click', () => {
-            document.getElementById('thread-view').classList.add('hidden');
-            document.getElementById('forum-main').classList.remove('hidden');
+        // Back to threads button
+        document.getElementById('back-to-threads')?.addEventListener('click', () => {
+            document.getElementById('thread-detail')?.classList.add('hidden');
+            document.getElementById('threads-container')?.parentElement.classList.remove('hidden');
             ForumApp.currentThreadId = null;
         });
     }
