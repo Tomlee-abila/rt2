@@ -8,7 +8,7 @@ import (
 	"real-time-forum/backend/internal/utils"
 	"real-time-forum/backend/internal/websocket"
 	"strconv"
-	"time"
+	// "time"
 )
 
 // Handlers contains all HTTP handlers and dependencies
@@ -259,8 +259,15 @@ func (h *Handlers) HandlePosts(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		// Parse post.CreatedAt for WebSocket notification
+		// createdAt, err := time.Parse("2006-01-02 15:04:05", post.CreatedAt)
+		// if err != nil {
+		// 	http.Error(w, "Error parsing post creation time", http.StatusInternalServerError)
+		// 	return
+		// }
+
 		// Broadcast new post event
-		h.Hub.handleNewPost(&post, user.Nickname, user.AvatarColor)
+		h.Hub.HandleNewPost(&post, user.Nickname, user.AvatarColor)
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(post)
@@ -318,8 +325,15 @@ func (h *Handlers) HandleComments(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		// Parse comment.CreatedAt for WebSocket notification
+		// createdAt, err := time.Parse("2006-01-02 15:04:05", comment.CreatedAt)
+		// if err != nil {
+		// 	http.Error(w, "Error parsing comment creation time", http.StatusInternalServerError)
+		// 	return
+		// }
+
 		// Broadcast new comment event
-		h.Hub.handleNewComment(&comment, user.Nickname, user.AvatarColor)
+		h.Hub.HandleNewComment(&comment, user.Nickname, user.AvatarColor)
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(comment)

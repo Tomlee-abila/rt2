@@ -3,8 +3,6 @@ package websocket
 import "time"
 
 // WebSocket event types and message structure definitions
-
-// EventType represents different types of WebSocket events
 type EventType string
 
 const (

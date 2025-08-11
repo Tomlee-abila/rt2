@@ -121,11 +121,11 @@ func (c *Client) handleMessage(msg map[string]interface{}) {
 
 	switch EventType(msgType) {
 	case EventTypePrivateMessage:
-		c.hub.handlePrivateMessage(c, msg)
+		c.hub.HandlePrivateMessage(c, msg)
 	case EventTypeTyping:
-		c.hub.handleTyping(c, msg)
+		c.hub.HandleTyping(c, msg)
 	case EventTypeStopTyping:
-		c.hub.handleStopTyping(c, msg)
+		c.hub.HandleStopTyping(c, msg)
 	}
 }
 

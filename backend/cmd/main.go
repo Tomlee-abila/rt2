@@ -44,6 +44,8 @@ func setupRoutes(handlers *api.Handlers) {
 	http.HandleFunc("/api/comments", handlers.HandleComments)
 	http.HandleFunc("/api/messages", handlers.HandleMessages)
 	http.HandleFunc("/api/users", handlers.HandleUsers)
+	http.HandleFunc("/api/users/me", handlers.HandleUsersMe)
+	http.HandleFunc("/api/profile", handlers.HandleProfile)
 	http.HandleFunc("/api/categories", handlers.HandleCategories)
 
 	// WebSocket endpoint

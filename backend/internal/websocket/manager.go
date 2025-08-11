@@ -106,12 +106,21 @@ func (h *Hub) broadcastOnlineUsers() {
 
 	var userStatuses []UserStatus
 	for _, user := range users {
+		// Parse LastSeen from string to time.Time
+		var lastSeen time.Time
+		if user.LastSeen != "" {
+			lastSeen, err = time.Parse("2006-01-02 15:04:05", user.LastSeen)
+			if err != nil {
+				log.Printf("Error parsing LastSeen for user %d: %v", user.ID, err)
+				continue
+			}
+		}
 		userStatuses = append(userStatuses, UserStatus{
 			ID:          user.ID,
 			Nickname:    user.Nickname,
 			AvatarColor: user.AvatarColor,
 			IsOnline:    user.IsOnline,
-			LastSeen:    user.LastSeen,
+			LastSeen:    lastSeen,
 		})
 	}
 
@@ -120,7 +129,11 @@ func (h *Hub) broadcastOnlineUsers() {
 		Data: OnlineUsersEvent{Users: userStatuses},
 	}
 
-	data, _ := json.Marshal(message)
+	data, err := json.Marshal(message)
+	if err != nil {
+		log.Printf("Error marshaling online users: %v", err)
+		return
+	}
 	h.broadcast <- data
 }
 
@@ -153,7 +166,7 @@ func (h *Hub) SendToUser(userID int, message interface{}) error {
 }
 
 // handlePrivateMessage handles private message events
-func (h *Hub) handlePrivateMessage(client *Client, msg map[string]interface{}) {
+func (h *Hub) HandlePrivateMessage(client *Client, msg map[string]interface{}) {
 	recipientID, ok := msg["recipientId"].(float64)
 	if !ok {
 		return
@@ -169,7 +182,7 @@ func (h *Hub) handlePrivateMessage(client *Client, msg map[string]interface{}) {
 		SenderID:    client.userID,
 		RecipientID: int(recipientID),
 		Content:     content,
-		CreatedAt:   time.Now(),
+		CreatedAt:   time.Now().Format("2006-01-02 15:04:05"), // Format time.Time to string
 	}
 
 	if err := database.CreateMessage(message); err != nil {
@@ -184,6 +197,13 @@ func (h *Hub) handlePrivateMessage(client *Client, msg map[string]interface{}) {
 		return
 	}
 
+	// Parse message.CreatedAt from string to time.Time for NewMessageEvent
+	createdAt, err := time.Parse("2006-01-02 15:04:05", message.CreatedAt)
+	if err != nil {
+		log.Printf("Error parsing message.CreatedAt: %v", err)
+		return
+	}
+
 	// Create response
 	response := WebSocketMessage{
 		Type: EventTypeNewMessage,
@@ -193,7 +213,7 @@ func (h *Hub) handlePrivateMessage(client *Client, msg map[string]interface{}) {
 			RecipientID: int(recipientID),
 			Content:     content,
 			Sender:      sender.Nickname,
-			Timestamp:   message.CreatedAt,
+			Timestamp:   createdAt,
 		},
 	}
 
@@ -205,7 +225,7 @@ func (h *Hub) handlePrivateMessage(client *Client, msg map[string]interface{}) {
 }
 
 // handleTyping handles typing indicator events
-func (h *Hub) handleTyping(client *Client, msg map[string]interface{}) {
+func (h *Hub) HandleTyping(client *Client, msg map[string]interface{}) {
 	chatWith, ok := msg["chatWith"].(float64)
 	if !ok {
 		return
@@ -230,7 +250,7 @@ func (h *Hub) handleTyping(client *Client, msg map[string]interface{}) {
 }
 
 // handleStopTyping handles stop typing indicator events
-func (h *Hub) handleStopTyping(client *Client, msg map[string]interface{}) {
+func (h *Hub) HandleStopTyping(client *Client, msg map[string]interface{}) {
 	chatWith, ok := msg["chatWith"].(float64)
 	if !ok {
 		return
@@ -249,7 +269,7 @@ func (h *Hub) handleStopTyping(client *Client, msg map[string]interface{}) {
 }
 
 // handleNewPost handles new post events
-func (h *Hub) handleNewPost(post *models.Post, nickname, avatarColor string) {
+func (h *Hub) HandleNewPost(post *models.Post, nickname, avatarColor string) {
 	response := WebSocketMessage{
 		Type: EventTypeNewPost,
 		Data: NewPostEvent{
@@ -275,7 +295,7 @@ func (h *Hub) handleNewPost(post *models.Post, nickname, avatarColor string) {
 }
 
 // handleNewComment handles new comment events
-func (h *Hub) handleNewComment(comment *models.Comment, nickname, avatarColor string) {
+func (h *Hub) HandleNewComment(comment *models.Comment, nickname, avatarColor string) {
 	response := WebSocketMessage{
 		Type: EventTypeNewComment,
 		Data: NewCommentEvent{
