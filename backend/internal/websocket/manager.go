@@ -247,3 +247,53 @@ func (h *Hub) handleStopTyping(client *Client, msg map[string]interface{}) {
 	// Send to the user being chatted with
 	h.SendToUser(int(chatWith), response)
 }
+
+// handleNewPost handles new post events
+func (h *Hub) handleNewPost(post *models.Post, nickname, avatarColor string) {
+	response := WebSocketMessage{
+		Type: EventTypeNewPost,
+		Data: NewPostEvent{
+			ID:           post.ID,
+			UserID:       post.UserID,
+			Title:        post.Title,
+			Content:      post.Content,
+			CategoryID:   post.CategoryID,
+			CategoryName: post.CategoryName,
+			Nickname:     nickname,
+			AvatarColor:  avatarColor,
+			Timestamp:    time.Now(),
+		},
+	}
+
+	data, err := json.Marshal(response)
+	if err != nil {
+		log.Printf("Error marshaling new post event: %v", err)
+		return
+	}
+
+	h.BroadcastMessage(data)
+}
+
+// handleNewComment handles new comment events
+func (h *Hub) handleNewComment(comment *models.Comment, nickname, avatarColor string) {
+	response := WebSocketMessage{
+		Type: EventTypeNewComment,
+		Data: NewCommentEvent{
+			ID:          comment.ID,
+			PostID:      comment.PostID,
+			UserID:      comment.UserID,
+			Content:     comment.Content,
+			Nickname:    nickname,
+			AvatarColor: avatarColor,
+			Timestamp:   time.Now(),
+		},
+	}
+
+	data, err := json.Marshal(response)
+	if err != nil {
+		log.Printf("Error marshaling new comment event: %v", err)
+		return
+	}
+
+	h.BroadcastMessage(data)
+}

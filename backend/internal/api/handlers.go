@@ -8,6 +8,7 @@ import (
 	"real-time-forum/backend/internal/utils"
 	"real-time-forum/backend/internal/websocket"
 	"strconv"
+	"time"
 )
 
 // Handlers contains all HTTP handlers and dependencies
@@ -24,7 +25,69 @@ func NewHandlers(hub *websocket.Hub) *Handlers {
 
 // ServeHome serves the main HTML file
 func (h *Handlers) ServeHome(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/" {
+		http.Error(w, "Not found", http.StatusNotFound)
+		return
+	}
 	http.ServeFile(w, r, "frontend/static/index.html")
+}
+
+// HandleUsersMe retrieves the authenticated user's profile
+func (h *Handlers) HandleUsersMe(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "GET" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	userID, err := utils.GetUserIDFromSession(r)
+	if err != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	user, err := database.GetUserByID(userID)
+	if err != nil {
+		http.Error(w, "Error retrieving user", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(user)
+}
+
+// HandleProfile updates the authenticated user's profile
+func (h *Handlers) HandleProfile(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "PUT" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	userID, err := utils.GetUserIDFromSession(r)
+	if err != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	var userData models.User
+	if err := json.NewDecoder(r.Body).Decode(&userData); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	// Validate user data
+	if err := userData.ValidateUser(); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Update user in database
+	if err := database.UpdateUser(userID, &userData); err != nil {
+		http.Error(w, "Error updating profile", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(userData)
 }
 
 // HandleRegister handles user registration
@@ -151,8 +214,18 @@ func (h *Handlers) HandlePosts(w http.ResponseWriter, r *http.Request) {
 
 	switch r.Method {
 	case "GET":
-		category := r.URL.Query().Get("category")
-		posts, err := database.GetPosts(category)
+		categoryIDStr := r.URL.Query().Get("category_id")
+		var posts []models.Post
+		if categoryIDStr != "" {
+			categoryID, err := strconv.Atoi(categoryIDStr)
+			if err != nil {
+				http.Error(w, "Invalid category ID", http.StatusBadRequest)
+				return
+			}
+			posts, err = database.GetPosts(categoryID)
+		} else {
+			posts, err = database.GetPosts(0) // 0 means all categories
+		}
 		if err != nil {
 			http.Error(w, "Error retrieving posts", http.StatusInternalServerError)
 			return
@@ -178,6 +251,16 @@ func (h *Handlers) HandlePosts(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Error creating post", http.StatusInternalServerError)
 			return
 		}
+
+		// Get user info for WebSocket notification
+		user, err := database.GetUserByID(userID)
+		if err != nil {
+			http.Error(w, "Error retrieving user info", http.StatusInternalServerError)
+			return
+		}
+
+		// Broadcast new post event
+		h.Hub.handleNewPost(&post, user.Nickname, user.AvatarColor)
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(post)
@@ -227,6 +310,16 @@ func (h *Handlers) HandleComments(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Error creating comment", http.StatusInternalServerError)
 			return
 		}
+
+		// Get user info for WebSocket notification
+		user, err := database.GetUserByID(userID)
+		if err != nil {
+			http.Error(w, "Error retrieving user info", http.StatusInternalServerError)
+			return
+		}
+
+		// Broadcast new comment event
+		h.Hub.handleNewComment(&comment, user.Nickname, user.AvatarColor)
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(comment)
@@ -285,4 +378,21 @@ func (h *Handlers) HandleUsers(w http.ResponseWriter, r *http.Request) {
 // HandleWebSocket handles WebSocket connections
 func (h *Handlers) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	websocket.HandleWebSocket(h.Hub, w, r)
+}
+
+// HandleCategories retrieves all categories
+func (h *Handlers) HandleCategories(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "GET" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	categories, err := database.GetCategories()
+	if err != nil {
+		http.Error(w, "Error retrieving categories", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(categories)
 }

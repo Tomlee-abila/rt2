@@ -1,37 +1,38 @@
 package models
 
-import "time"
+import "errors"
 
-// Post and comment models with category validation
+// Post represents a forum post
 type Post struct {
-	ID        int       `json:"id"`
-	UserID    int       `json:"userId"`
-	Title     string    `json:"title"`
-	Content   string    `json:"content"`
-	Category  string    `json:"category"`
-	CreatedAt time.Time `json:"createdAt"`
-	Author    string    `json:"author"`
+	ID           int    `json:"id"`
+	UserID       int    `json:"user_id"`
+	Title        string `json:"title"`
+	Content      string `json:"content"`
+	CategoryID   int    `json:"category_id"`
+	CategoryName string `json:"category"`
+	CreatedAt    string `json:"created_at"`
+	UpdatedAt    string `json:"updated_at"`
+	Nickname     string `json:"nickname"`
+	AvatarColor  string `json:"avatar_color"`
+	CommentCount int    `json:"comment_count"`
 }
 
+// Comment represents a comment on a post
 type Comment struct {
-	ID        int       `json:"id"`
-	PostID    int       `json:"postId"`
-	UserID    int       `json:"userId"`
-	Content   string    `json:"content"`
-	CreatedAt time.Time `json:"createdAt"`
-	Author    string    `json:"author"`
+	ID          int    `json:"id"`
+	PostID      int    `json:"post_id"`
+	UserID      int    `json:"user_id"`
+	Content     string `json:"content"`
+	CreatedAt   string `json:"created_at"`
+	UpdatedAt   string `json:"updated_at"`
+	Nickname    string `json:"nickname"`
+	AvatarColor string `json:"avatar_color"`
 }
 
-// ValidatePost validates post input data
+// ValidatePost validates post data
 func (p *Post) ValidatePost() error {
-	if p.Title == "" {
-		return ErrInvalidTitle
-	}
-	if p.Content == "" {
-		return ErrInvalidContent
-	}
-	if !IsValidCategory(p.Category) {
-		return ErrInvalidCategory
+	if p.Title == "" || p.Content == "" || p.CategoryID == 0 {
+		return errors.New("title, content, and category are required")
 	}
 	return nil
 }
@@ -45,15 +46,4 @@ func (c *Comment) ValidateComment() error {
 		return ErrInvalidPostID
 	}
 	return nil
-}
-
-// IsValidCategory checks if the category value is valid
-func IsValidCategory(category string) bool {
-	validCategories := []string{"general", "technology", "random", "help"}
-	for _, valid := range validCategories {
-		if category == valid {
-			return true
-		}
-	}
-	return false
 }
