@@ -36,6 +36,7 @@ func runMigrations() error {
 	migrationFiles := []string{
 		"migrations/001_init.sql",
 		"migrations/002_add_user_status.sql",
+		"migrations/003_add_categories.sql",
 	}
 
 	for _, file := range migrationFiles {
@@ -92,7 +93,7 @@ func executeUserStatusMigration() error {
 		}
 	}
 
-	// Create indexes (these are safe to run multiple times)
+	// Create indexes (safe to run multiple times)
 	_, err = DB.Exec("CREATE INDEX IF NOT EXISTS idx_users_is_online ON users(is_online)")
 	if err != nil {
 		return err
