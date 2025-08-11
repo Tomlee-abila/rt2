@@ -1,6 +1,5 @@
 package models
 
-import "time"
 
 // User data structures, validation, and business logic
 type User struct {
@@ -13,7 +12,7 @@ type User struct {
 	Gender      string    `json:"gender"`
 	AvatarColor string    `json:"avatarColor"`
 	IsOnline    bool      `json:"isOnline"`
-	LastSeen    time.Time `json:"lastSeen"`
+	LastSeen    string `json:"lastSeen"`
 }
 
 // ValidateUser validates user input data

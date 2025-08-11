@@ -10,7 +10,7 @@ func CreatePost(post *models.Post) error {
 	result, err := DB.Exec(`
 		INSERT INTO posts (user_id, title, content, category_id, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?)
-	`, post.UserID, post.Title, post.Content, post.CategoryID, time.Now(), time.Now())
+	`, post.UserID, post.Title, post.Content, post.CategoryID, time.Now().Format("2006-01-02 15:04:05"), time.Now().Format("2006-01-02 15:04:05"))
 	if err != nil {
 		return err
 	}
@@ -82,7 +82,7 @@ func CreateComment(comment *models.Comment) error {
 	result, err := DB.Exec(`
 		INSERT INTO comments (post_id, user_id, content, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?)
-	`, comment.PostID, comment.UserID, comment.Content, time.Now(), time.Now())
+	`, comment.PostID, comment.UserID, comment.Content, time.Now().Format("2006-01-02 15:04:05"), time.Now().Format("2006-01-02 15:04:05"))
 	if err != nil {
 		return err
 	}

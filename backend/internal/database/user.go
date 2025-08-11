@@ -112,6 +112,22 @@ func GetAllUsers() ([]models.User, error) {
 	return users, nil
 }
 
+// UpdateUser updates a user's profile data
+func UpdateUser(userID int, user *models.User) error {
+	_, err := DB.Exec(`
+		UPDATE users
+		SET nickname = ?, email = ?, first_name = ?, last_name = ?, age = ?, gender = ?, avatar_color = ?
+		WHERE id = ?
+	`, user.Nickname, user.Email, user.FirstName, user.LastName, user.Age, user.Gender, user.AvatarColor, userID)
+	if err != nil {
+		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
+			return ErrUserAlreadyExists
+		}
+		return err
+	}
+	return nil
+}
+
 // UpdateUserOnlineStatus updates a user's online status
 func UpdateUserOnlineStatus(userID int, isOnline bool) error {
 	_, err := DB.Exec(`
