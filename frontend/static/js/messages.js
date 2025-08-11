@@ -1,407 +1,284 @@
-// Real-time messaging: WebSocket events, chat UI, conversations
-
 window.Messages = {
-    typingTimer: null,
-    typingUsers: new Set(),
-
-    async loadMessages(userId, offset = 0) {
+    async loadConversations() {
         try {
-            const response = await fetch(`/api/messages?user_id=${userId}&offset=${offset}`);
+            const response = await fetch('/api/messages', { credentials: 'include' });
             if (response.ok) {
                 const messages = await response.json();
-                this.displayMessages(messages);
-                return messages;
+                ForumApp.conversations = this.processConversations(messages);
+                loadConversations();
             } else {
-                showNotification('Failed to load messages', 'error');
-                return [];
+                showNotification('Failed to load conversations', 'error');
             }
         } catch (error) {
+            console.error('Error loading conversations:', error);
+            showNotification('Error loading conversations', 'error');
+        }
+    },
+
+    processConversations(messages) {
+        const conversations = {};
+        messages.forEach(msg => {
+            const otherUserId = msg.senderId === ForumApp.currentUser.id ? msg.recipientId : msg.senderId;
+            const otherUser = ForumApp.onlineUsers.find(u => u.id === otherUserId) || {
+                id: otherUserId,
+                nickname: `User ${otherUserId}`,
+                avatarColor: 'blue-500'
+            };
+
+            if (!conversations[otherUserId]) {
+                conversations[otherUserId] = {
+                    id: otherUserId,
+                    with: otherUser.nickname,
+                    withColor: otherUser.avatarColor,
+                    withInitials: otherUser.nickname.substring(0, 2).toUpperCase(),
+                    lastMessage: msg.content,
+                    time: formatDate(msg.timestamp),
+                    unread: msg.senderId !== ForumApp.currentUser.id,
+                    messages: [],
+                    userId: otherUserId
+                };
+            }
+            conversations[otherUserId].messages.push(msg);
+        });
+        return Object.values(conversations);
+    },
+
+    async loadMessages(userId) {
+        try {
+            const response = await fetch(`/api/messages?user_id=${userId}`, { credentials: 'include' });
+            if (response.ok) {
+                const messages = await response.json();
+                const conversation = ForumApp.conversations.find(c => c.userId === userId);
+                if (conversation) {
+                    conversation.messages = messages;
+                    this.displayMessages(messages);
+                }
+            } else {
+                showNotification('Failed to load messages', 'error');
+            }
+        } catch (error) {
+            console.error('Error loading messages:', error);
             showNotification('Error loading messages', 'error');
-            return [];
         }
     },
 
     displayMessages(messages) {
-        const messagesContainer = document.getElementById('chat-messages');
-        if (!messagesContainer) return;
+        const chatMessages = document.getElementById('chat-messages');
+        const mobileChatMessages = document.getElementById('mobile-chat-messages');
+        if (!chatMessages || !mobileChatMessages) return;
 
-        // Clear existing messages
-        messagesContainer.innerHTML = '';
+        chatMessages.innerHTML = '';
+        mobileChatMessages.innerHTML = '';
 
-        if (messages.length === 0) {
-            messagesContainer.innerHTML = `
-                <div class="text-center py-4 text-gray-500">
-                    <p>No messages yet. Start the conversation!</p>
+        messages.forEach(msg => {
+            const isSent = msg.senderId === ForumApp.currentUser.id;
+            const div = document.createElement('div');
+            div.className = `flex ${isSent ? 'justify-end' : 'justify-start'} mb-2`;
+            div.innerHTML = `
+                <div class="${isSent ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-800'} p-3 rounded-lg max-w-xs">
+                    <p class="text-sm">${escapeHtml(msg.content)}</p>
+                    <p class="text-xs mt-1 opacity-75">${formatTime(msg.timestamp)}</p>
                 </div>
             `;
-            return;
-        }
-
-        // Reverse messages to show oldest first
-        messages.reverse().forEach(message => {
-            const messageElement = this.createMessageElement(message);
-            messagesContainer.appendChild(messageElement);
+            chatMessages.appendChild(div);
+            mobileChatMessages.appendChild(div.cloneNode(true));
         });
 
-        // Scroll to bottom
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+        mobileChatMessages.scrollTop = mobileChatMessages.scrollHeight;
     },
 
-    createMessageElement(message) {
-        const messageDiv = document.createElement('div');
-        const isOwnMessage = message.senderId === ForumApp.currentUser?.id;
-        
-        messageDiv.className = `flex ${isOwnMessage ? 'justify-end' : 'justify-start'} mb-3`;
-
-        const messageContent = `
-            <div class="max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                isOwnMessage 
-                    ? 'bg-blue-500 text-white' 
-                    : 'bg-gray-200 text-gray-900'
-            }">
-                <p class="text-sm">${escapeHtml(message.content)}</p>
-                <p class="text-xs mt-1 ${
-                    isOwnMessage ? 'text-blue-100' : 'text-gray-500'
-                }">
-                    ${formatTime(message.createdAt)}
-                </p>
-            </div>
-        `;
-
-        messageDiv.innerHTML = messageContent;
-        return messageDiv;
-    },
-
-    startChat(userId, username) {
-        ForumApp.currentChatUser = { id: userId, nickname: username };
-        
-        // Update chat header
-        const chatHeader = document.getElementById('chat-header');
-        if (chatHeader) {
-            chatHeader.innerHTML = `
-                <h3 class="font-semibold">Chat with ${escapeHtml(username)}</h3>
-                <button id="close-chat" class="text-gray-500 hover:text-gray-700">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                    </svg>
-                </button>
-            `;
-        }
-
-        // Show chat panel
-        const chatPanel = document.getElementById('chat-panel');
-        if (chatPanel) {
-            chatPanel.classList.remove('hidden');
-        }
-
-        // Load messages
-        this.loadMessages(userId);
-
-        // Setup close button
-        document.getElementById('close-chat')?.addEventListener('click', this.closeChat);
-    },
-
-    closeChat() {
-        ForumApp.currentChatUser = null;
-        const chatPanel = document.getElementById('chat-panel');
-        if (chatPanel) {
-            chatPanel.classList.add('hidden');
+    async sendMessage(recipientId, content) {
+        WebSocketClient.sendPrivateMessage(recipientId, content);
+        const conversation = ForumApp.conversations.find(c => c.userId === recipientId);
+        if (conversation) {
+            conversation.messages.push({
+                senderId: ForumApp.currentUser.id,
+                recipientId,
+                content,
+                timestamp: new Date().toISOString()
+            });
+            conversation.lastMessage = content;
+            conversation.time = formatDate(new Date());
+            this.displayMessages(conversation.messages);
+            loadConversations();
         }
     },
 
-    async sendMessage() {
-        const messageInput = document.getElementById('chat-input') || document.getElementById('mobile-chat-input');
-        const content = messageInput?.value.trim();
-
-        if (!content || !ForumApp.currentChatUser) {
-            return;
-        }
-
-        // Send via WebSocket
-        const success = WebSocketClient.sendPrivateMessage(ForumApp.currentChatUser.id, content);
-
-        if (success) {
-            messageInput.value = '';
-            // Clear both inputs
-            const desktopInput = document.getElementById('chat-input');
-            const mobileInput = document.getElementById('mobile-chat-input');
-            if (desktopInput) desktopInput.value = '';
-            if (mobileInput) mobileInput.value = '';
-
-            this.stopTyping();
-        } else {
-            showNotification('Failed to send message', 'error');
-        }
-    },
-
-    handleNewMessage(messageData) {
-        // Update conversations list
-        this.updateConversationsList(messageData);
-
-        // Add message to chat if it's for the current conversation
-        if (ForumApp.currentChatUser &&
-            (messageData.senderId === ForumApp.currentChatUser.id ||
-             messageData.recipientId === ForumApp.currentChatUser.id)) {
-
-            const messagesContainer = document.getElementById('chat-messages');
-            const mobileMessagesContainer = document.getElementById('mobile-chat-messages');
-
-            if (messagesContainer || mobileMessagesContainer) {
-                const messageElement = this.createMessageElement({
-                    id: messageData.id,
-                    senderId: messageData.senderId,
-                    recipientId: messageData.recipientId,
-                    content: messageData.content,
-                    createdAt: messageData.timestamp,
-                    sender: messageData.sender
-                });
-                
-                messagesContainer.appendChild(messageElement);
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    handleNewMessage(data) {
+        const conversation = ForumApp.conversations.find(c => c.userId === data.senderId || c.userId === data.recipientId);
+        if (conversation) {
+            conversation.messages.push(data);
+            conversation.lastMessage = data.content;
+            conversation.time = formatDate(data.timestamp);
+            conversation.unread = data.senderId !== ForumApp.currentUser.id;
+            if (ForumApp.currentChatUser?.userId === data.senderId || ForumApp.currentChatUser?.userId === data.recipientId) {
+                this.displayMessages(conversation.messages);
             }
-        }
-
-        // Show notification if not in current chat
-        if (!ForumApp.currentChatUser || messageData.senderId !== ForumApp.currentChatUser.id) {
-            showNotification(`New message from ${messageData.sender}`);
+            loadConversations();
+            if (data.senderId !== ForumApp.currentUser.id) {
+                showNotification(`New message from ${data.sender}`);
+            }
+        } else {
+            this.loadConversations();
         }
     },
 
     handleTyping(data) {
-        if (ForumApp.currentChatUser && data.userId === ForumApp.currentChatUser.id) {
-            this.showTypingIndicator(data.username);
+        if (ForumApp.currentChatUser?.userId === data.userId) {
+            const typingIndicator = document.getElementById('typing-indicator');
+            const mobileTypingIndicator = document.getElementById('mobile-typing-indicator');
+            if (typingIndicator && mobileTypingIndicator) {
+                typingIndicator.classList.remove('hidden');
+                mobileTypingIndicator.classList.remove('hidden');
+            }
         }
     },
 
     handleStopTyping(data) {
-        if (ForumApp.currentChatUser && data.userId === ForumApp.currentChatUser.id) {
-            this.hideTypingIndicator();
+        if (ForumApp.currentChatUser?.userId === data.userId) {
+            const typingIndicator = document.getElementById('typing-indicator');
+            const mobileTypingIndicator = document.getElementById('mobile-typing-indicator');
+            if (typingIndicator && mobileTypingIndicator) {
+                typingIndicator.classList.add('hidden');
+                mobileTypingIndicator.classList.add('hidden');
+            }
         }
     },
 
-    showTypingIndicator(username) {
-        const messagesContainer = document.getElementById('chat-messages');
-        if (!messagesContainer) return;
-
-        // Remove existing typing indicator
-        const existingIndicator = messagesContainer.querySelector('.typing-indicator');
-        if (existingIndicator) {
-            existingIndicator.remove();
-        }
-
-        // Add new typing indicator
-        const typingDiv = document.createElement('div');
-        typingDiv.className = 'typing-indicator flex justify-start mb-3';
-        typingDiv.innerHTML = `
-            <div class="bg-gray-200 text-gray-900 max-w-xs lg:max-w-md px-4 py-2 rounded-lg">
-                <p class="text-sm">${escapeHtml(username)} is typing...</p>
-            </div>
-        `;
-
-        messagesContainer.appendChild(typingDiv);
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
-    },
-
-    hideTypingIndicator() {
-        const typingIndicator = document.querySelector('.typing-indicator');
-        if (typingIndicator) {
-            typingIndicator.remove();
-        }
-    },
-
-    startTyping() {
-        if (ForumApp.currentChatUser) {
-            WebSocketClient.sendTyping(ForumApp.currentChatUser.id);
-        }
-    },
-
-    stopTyping() {
-        if (ForumApp.currentChatUser) {
-            WebSocketClient.sendStopTyping(ForumApp.currentChatUser.id);
-        }
+    startChat(userId, nickname) {
+        const user = ForumApp.onlineUsers.find(u => u.id === userId) || { id: userId, nickname, avatarColor: 'blue-500' };
+        startPrivateChat(user);
     },
 
     setupEventListeners() {
-        // Send message button
-        document.getElementById('send-chat-btn')?.addEventListener('click', () => this.sendMessage());
-        document.getElementById('mobile-send-chat-btn')?.addEventListener('click', () => this.sendMessage());
+        document.getElementById('new-message-btn')?.addEventListener('click', async () => {
+            await this.populateRecipientList();
+            DOM.newMessageModal.classList.remove('hidden');
+        });
 
-        // Enter key to send message
-        document.getElementById('chat-input')?.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                this.sendMessage();
+        document.getElementById('mobile-new-message-btn')?.addEventListener('click', async () => {
+            await this.populateRecipientList();
+            DOM.newMessageModal.classList.remove('hidden');
+        });
+
+        document.getElementById('send-message-btn')?.addEventListener('click', async () => {
+            const recipientId = document.getElementById('message-recipient').value;
+            const content = document.getElementById('message-content').value.trim();
+            if (!recipientId || !content) {
+                showNotification('Please select a recipient and enter a message', 'error');
+                return;
             }
+            await this.sendMessage(recipientId, content);
+            DOM.newMessageModal.classList.add('hidden');
+            document.getElementById('message-content').value = '';
+            this.startChat(parseInt(recipientId), document.getElementById('message-recipient').selectedOptions[0].text);
         });
 
-        document.getElementById('mobile-chat-input')?.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                this.sendMessage();
-            }
-        });
-
-        // New message modal
-        document.getElementById('new-message-btn')?.addEventListener('click', () => {
-            document.getElementById('new-message-modal')?.classList.remove('hidden');
-            this.loadUsersForMessaging();
-        });
-
-        document.getElementById('mobile-new-message-btn')?.addEventListener('click', () => {
-            document.getElementById('new-message-modal')?.classList.remove('hidden');
-            this.loadUsersForMessaging();
-        });
-
-        // Send new message
-        document.getElementById('send-message-btn')?.addEventListener('click', () => this.sendNewMessage());
-
-        // Close chat
-        document.getElementById('close-chat')?.addEventListener('click', () => {
-            document.getElementById('chat-window')?.classList.add('hidden');
-        });
-
-        document.getElementById('close-mobile-chat')?.addEventListener('click', () => {
-            document.getElementById('mobile-chat-panel')?.classList.add('hidden');
-        });
-
-        // Mobile messages panel
         document.getElementById('mobile-messages-btn')?.addEventListener('click', () => {
-            document.getElementById('mobile-messages-panel')?.classList.remove('hidden');
+            DOM.mobileMessagesPanel.classList.remove('hidden');
+            DOM.forumContent.classList.add('hidden');
+            this.loadConversations();
         });
 
         document.getElementById('close-mobile-messages')?.addEventListener('click', () => {
-            document.getElementById('mobile-messages-panel')?.classList.add('hidden');
+            DOM.mobileMessagesPanel.classList.add('hidden');
+            DOM.forumContent.classList.remove('hidden');
         });
 
-        // Typing indicators
-        document.getElementById('chat-input')?.addEventListener('input', (e) => {
-            if (e.target.value.trim()) {
-                this.startTyping();
+        document.getElementById('close-chat')?.addEventListener('click', () => {
+            DOM.chatWindow.classList.add('hidden');
+            ForumApp.currentChatUser = null;
+        });
 
-                // Clear existing timer
-                if (this.typingTimer) {
-                    clearTimeout(this.typingTimer);
+        document.getElementById('close-mobile-chat')?.addEventListener('click', () => {
+            DOM.mobileChatPanel.classList.add('hidden');
+            DOM.forumContent.classList.remove('hidden');
+            ForumApp.currentChatUser = null;
+        });
+
+        document.getElementById('chat-input')?.addEventListener('keypress', async (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                const content = e.target.value.trim();
+                if (content && ForumApp.currentChatUser) {
+                    await this.sendMessage(ForumApp.currentChatUser.userId, content);
+                    e.target.value = '';
+                    WebSocketClient.sendStopTyping(ForumApp.currentChatUser.userId);
                 }
+            }
+        });
 
-                // Set timer to stop typing after 2 seconds of inactivity
-                this.typingTimer = setTimeout(() => {
-                    this.stopTyping();
-                }, 2000);
-            } else {
-                this.stopTyping();
+        document.getElementById('mobile-chat-input')?.addEventListener('keypress', async (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                const content = e.target.value.trim();
+                if (content && ForumApp.currentChatUser) {
+                    await this.sendMessage(ForumApp.currentChatUser.userId, content);
+                    e.target.value = '';
+                    WebSocketClient.sendStopTyping(ForumApp.currentChatUser.userId);
+                }
+            }
+        });
+
+        document.getElementById('chat-input')?.addEventListener('input', () => {
+            if (ForumApp.currentChatUser) {
+                WebSocketClient.sendTyping(ForumApp.currentChatUser.userId);
+            }
+        });
+
+        document.getElementById('mobile-chat-input')?.addEventListener('input', () => {
+            if (ForumApp.currentChatUser) {
+                WebSocketClient.sendTyping(ForumApp.currentChatUser.userId);
+            }
+        });
+
+        document.getElementById('send-chat-btn')?.addEventListener('click', async () => {
+            const content = document.getElementById('chat-input').value.trim();
+            if (content && ForumApp.currentChatUser) {
+                await this.sendMessage(ForumApp.currentChatUser.userId, content);
+                document.getElementById('chat-input').value = '';
+                WebSocketClient.sendStopTyping(ForumApp.currentChatUser.userId);
+            }
+        });
+
+        document.getElementById('mobile-send-chat-btn')?.addEventListener('click', async () => {
+            const content = document.getElementById('mobile-chat-input').value.trim();
+            if (content && ForumApp.currentChatUser) {
+                await this.sendMessage(ForumApp.currentChatUser.userId, content);
+                document.getElementById('mobile-chat-input').value = '';
+                WebSocketClient.sendStopTyping(ForumApp.currentChatUser.userId);
             }
         });
     },
 
-    async loadUsersForMessaging() {
+    async populateRecipientList() {
         try {
-            const response = await fetch('/api/users');
+            const response = await fetch('/api/users', { credentials: 'include' });
             if (response.ok) {
                 const users = await response.json();
-                const select = document.getElementById('message-recipient');
-                if (select) {
-                    select.innerHTML = '<option value="">Select a user</option>';
+                const recipientSelect = document.getElementById('message-recipient');
+                if (recipientSelect) {
+                    recipientSelect.innerHTML = '<option value="">Select a user</option>';
                     users.forEach(user => {
-                        const option = document.createElement('option');
-                        option.value = user.id;
-                        option.textContent = user.nickname;
-                        select.appendChild(option);
+                        if (user.id !== ForumApp.currentUser.id) {
+                            const option = document.createElement('option');
+                            option.value = user.id;
+                            option.textContent = user.nickname;
+                            recipientSelect.appendChild(option);
+                        }
                     });
                 }
+            } else {
+                showNotification('Failed to load users', 'error');
             }
         } catch (error) {
             console.error('Error loading users:', error);
+            showNotification('Error loading users', 'error');
         }
-    },
-
-    async sendNewMessage() {
-        const recipientId = document.getElementById('message-recipient').value;
-        const content = document.getElementById('message-content').value;
-
-        if (!recipientId || !content) {
-            showNotification('Please select a recipient and enter a message', 'error');
-            return;
-        }
-
-        try {
-            const response = await fetch('/api/messages', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    recipientId: parseInt(recipientId),
-                    content
-                }),
-            });
-
-            if (response.ok) {
-                document.getElementById('message-content').value = '';
-                document.getElementById('new-message-modal')?.classList.add('hidden');
-                showNotification('Message sent successfully!');
-                this.loadConversations();
-            } else {
-                showNotification('Failed to send message', 'error');
-            }
-        } catch (error) {
-            showNotification('Error sending message', 'error');
-        }
-    },
-
-    async loadConversations() {
-        try {
-            const response = await fetch('/api/conversations');
-            if (response.ok) {
-                const conversations = await response.json();
-                ForumApp.conversations = conversations;
-                loadConversations(); // Update UI
-            }
-        } catch (error) {
-            console.error('Error loading conversations:', error);
-        }
-    },
-
-    updateConversationsList(messageData) {
-        // Find or create conversation
-        let conversation = ForumApp.conversations?.find(c =>
-            c.with === messageData.senderNickname || c.with === messageData.recipientNickname
-        );
-
-        if (!conversation) {
-            const otherUser = messageData.senderId === ForumApp.currentUser?.id ?
-                { nickname: messageData.recipientNickname, id: messageData.recipientId } :
-                { nickname: messageData.senderNickname, id: messageData.senderId };
-
-            conversation = {
-                id: Date.now(),
-                with: otherUser.nickname,
-                withColor: 'blue-500', // Default color
-                withInitials: otherUser.nickname.substring(0, 2).toUpperCase(),
-                lastMessage: messageData.content,
-                time: 'now',
-                unread: messageData.senderId !== ForumApp.currentUser?.id,
-                messages: []
-            };
-
-            ForumApp.conversations = ForumApp.conversations || [];
-            ForumApp.conversations.unshift(conversation);
-        } else {
-            // Update existing conversation
-            conversation.lastMessage = messageData.content;
-            conversation.time = 'now';
-            conversation.unread = messageData.senderId !== ForumApp.currentUser?.id;
-
-            // Move to top
-            ForumApp.conversations = ForumApp.conversations.filter(c => c.id !== conversation.id);
-            ForumApp.conversations.unshift(conversation);
-        }
-
-        // Update UI
-        loadConversations();
     }
 };
 
-// Initialize messages event listeners when DOM is ready
 document.addEventListener('DOMContentLoaded', function() {
     Messages.setupEventListeners();
 });
