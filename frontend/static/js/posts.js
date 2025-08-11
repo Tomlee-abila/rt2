@@ -1,12 +1,12 @@
-// Post management: creation, display, commenting, filtering
-
 window.Posts = {
     async loadPosts() {
+        if (!ForumApp.currentUser) {
+            DOM.loginModal.classList.remove('hidden');
+            return;
+        }
         try {
-            const url = ForumApp.currentCategory === 'all' ? 
-                '/api/posts' : `/api/posts?category=${ForumApp.currentCategory}`;
-            
-            const response = await fetch(url);
+            const url = ForumApp.currentCategory === 'all' ? '/api/posts' : `/api/posts?category_id=${ForumApp.currentCategory}`;
+            const response = await fetch(url, { credentials: 'include' });
             if (response.ok) {
                 const posts = await response.json();
                 this.displayPosts(posts);
@@ -14,12 +14,13 @@ window.Posts = {
                 showNotification('Failed to load posts', 'error');
             }
         } catch (error) {
+            console.error('Error loading posts:', error);
             showNotification('Error loading posts', 'error');
         }
     },
 
     displayPosts(posts) {
-        const threadsContainer = document.getElementById('threads-container');
+        const threadsContainer = DOM.threadsContainer;
         if (!threadsContainer) return;
 
         threadsContainer.innerHTML = '';
@@ -41,120 +42,72 @@ window.Posts = {
     },
 
     createPostElement(post) {
-        const postDiv = document.createElement('div');
-        postDiv.className = 'border-b border-gray-200 pb-4 mb-4 hover:bg-gray-50 p-3 rounded cursor-pointer transition-colors';
-        postDiv.onclick = () => this.showPost(post.id);
-
-        const avatarColor = post.authorColor || 'blue-500';
-        const initials = post.authorInitials || post.author?.substring(0, 2).toUpperCase() || 'U';
-
-        postDiv.innerHTML = `
-            <div class="flex items-start space-x-3">
-                <div class="w-10 h-10 rounded-full bg-${avatarColor} flex items-center justify-center text-white font-semibold text-sm">
-                    ${initials}
+        const div = document.createElement('div');
+        div.className = 'bg-white p-4 rounded-md shadow-sm border border-gray-200 hover:shadow-md transition';
+        div.innerHTML = `
+            <div class="flex items-center space-x-2 mb-2">
+                <div class="w-6 h-6 rounded-full bg-${post.avatar_color || 'blue-500'} flex items-center justify-center text-xs text-white">
+                    ${post.nickname ? post.nickname.substring(0, 2).toUpperCase() : 'U'}
                 </div>
-                <div class="flex-1 min-w-0">
-                    <h3 class="font-medium text-gray-900 hover:text-blue-600 transition-colors">${escapeHtml(post.title)}</h3>
-                    <div class="flex items-center space-x-2 text-sm text-gray-500 mt-1">
-                        <span>${escapeHtml(post.author)}</span>
-                        <span>•</span>
-                        <span>${formatTime(post.created_at)}</span>
-                        <span>•</span>
-                        <span class="bg-gray-100 px-2 py-1 rounded text-xs">${escapeHtml(post.category)}</span>
-                    </div>
-                    <p class="text-gray-600 text-sm mt-2 line-clamp-2">${escapeHtml(post.content?.substring(0, 150) || '')}${post.content?.length > 150 ? '...' : ''}</p>
-                    <div class="flex items-center space-x-4 mt-2 text-sm text-gray-500">
-                        <span>${post.reply_count || 0} replies</span>
-                        <span>Last activity: ${formatTime(post.updated_at || post.created_at)}</span>
-                    </div>
-                </div>
+                <span class="text-sm font-medium text-gray-700">${escapeHtml(post.nickname)}</span>
+                <span class="text-sm text-gray-500">• ${formatDate(post.created_at)}</span>
             </div>
-                    <h3 class="text-lg font-semibold text-gray-900 mb-2">${escapeHtml(post.title)}</h3>
-                    <p class="text-gray-600 mb-3 line-clamp-3">${escapeHtml(post.content)}</p>
-                    <div class="flex items-center text-sm text-gray-500">
-                        <span class="bg-${this.getCategoryColor(post.category)}-100 text-${this.getCategoryColor(post.category)}-800 px-2 py-1 rounded-full text-xs mr-3">
-                            ${post.category}
-                        </span>
-                        <span>by ${escapeHtml(post.author)}</span>
-                        <span class="mx-2">•</span>
-                        <span>${formatDate(post.createdAt)}</span>
-                    </div>
-                </div>
+            <h3 class="text-lg font-semibold text-gray-800 mb-2">${escapeHtml(post.title)}</h3>
+            <p class="text-gray-600 mb-3 line-clamp-3">${escapeHtml(post.content)}</p>
+            <div class="flex justify-between items-center text-sm text-gray-500">
+                <span>${post.comment_count || 0} comments</span>
+                <button data-post-id="${post.id}" class="view-post-btn text-blue-600 hover:text-blue-800">View post</button>
             </div>
         `;
-
-        return postDiv;
-    },
-
-    showPost(postId) {
-        // Hide threads container and show thread detail
-        document.getElementById('threads-container')?.parentElement.classList.add('hidden');
-        document.getElementById('thread-detail')?.classList.remove('hidden');
-
-        // Load post details
-        this.loadPostDetails(postId);
+        div.querySelector('.view-post-btn').addEventListener('click', () => {
+            if (!ForumApp.currentUser) {
+                DOM.loginModal.classList.remove('hidden');
+                return;
+            }
+            this.loadPostDetails(post.id);
+        });
+        return div;
     },
 
     async loadPostDetails(postId) {
         try {
-            const response = await fetch(`/api/posts/${postId}`);
+            ForumApp.currentThreadId = postId;
+            const response = await fetch(`/api/posts?post_id=${postId}`, { credentials: 'include' });
             if (response.ok) {
                 const post = await response.json();
                 this.displayPostDetails(post);
-                this.loadComments(postId);
+                await this.loadComments(postId);
+                DOM.threadsContainer.classList.add('hidden');
+                DOM.threadDetail.classList.remove('hidden');
             } else {
                 showNotification('Failed to load post details', 'error');
             }
         } catch (error) {
+            console.error('Error loading post details:', error);
             showNotification('Error loading post details', 'error');
         }
     },
 
     displayPostDetails(post) {
-        const avatarColor = post.authorColor || 'blue-500';
-        const initials = post.authorInitials || post.author?.substring(0, 2).toUpperCase() || 'U';
+        const title = document.getElementById('thread-detail-title');
+        const avatar = document.getElementById('thread-detail-avatar');
+        const author = document.getElementById('thread-detail-author');
+        const time = document.getElementById('thread-detail-time');
+        const content = document.getElementById('thread-detail-content');
 
-        document.getElementById('thread-detail-title').textContent = post.title;
-        document.getElementById('thread-detail-author').textContent = post.author;
-        document.getElementById('thread-detail-time').textContent = formatTime(post.created_at);
-        document.getElementById('thread-detail-content').textContent = post.content;
-
-        const avatarElement = document.getElementById('thread-detail-avatar');
-        avatarElement.className = `w-6 h-6 rounded-full bg-${avatarColor} flex items-center justify-center text-xs text-white`;
-        avatarElement.textContent = initials;
-    },
-
-    clearThreadForm() {
-        document.getElementById('thread-title').value = '';
-        document.getElementById('thread-content').value = '';
-        document.getElementById('thread-category').value = '';
-    },
-
-    getCategoryColor(category) {
-        const colors = {
-            'general': 'blue',
-            'technology': 'green',
-            'random': 'purple',
-            'help': 'orange'
-        };
-        return colors[category] || 'gray';
-    },
-
-    async showPost(postId) {
-        ForumApp.currentThreadId = postId;
-
-        // Hide threads container and show thread detail
-        document.getElementById('threads-container')?.parentElement.classList.add('hidden');
-        document.getElementById('thread-detail')?.classList.remove('hidden');
-
-        // Load post details and comments
-        await this.loadPostDetails(postId);
-        await this.loadComments(postId);
+        if (title && avatar && author && time && content) {
+            title.textContent = post.title;
+            avatar.className = `w-6 h-6 rounded-full bg-${post.avatar_color || 'blue-500'} flex items-center justify-center text-xs text-white`;
+            avatar.textContent = post.nickname ? post.nickname.substring(0, 2).toUpperCase() : 'U';
+            author.textContent = post.nickname;
+            time.textContent = formatDate(post.created_at);
+            content.textContent = post.content;
+        }
     },
 
     async loadComments(postId) {
         try {
-            const response = await fetch(`/api/comments?post_id=${postId}`);
+            const response = await fetch(`/api/comments?post_id=${postId}`, { credentials: 'include' });
             if (response.ok) {
                 const comments = await response.json();
                 this.displayComments(comments);
@@ -162,6 +115,7 @@ window.Posts = {
                 showNotification('Failed to load comments', 'error');
             }
         } catch (error) {
+            console.error('Error loading comments:', error);
             showNotification('Error loading comments', 'error');
         }
     },
@@ -172,143 +126,307 @@ window.Posts = {
 
         repliesContainer.innerHTML = '';
 
-        if (comments.length === 0) {
-            repliesContainer.innerHTML = `
-                <div class="text-center py-4 text-gray-500">
-                    <p>No replies yet. Be the first to reply!</p>
-                </div>
-            `;
-            return;
-        }
-
         comments.forEach(comment => {
-            const commentElement = this.createCommentElement(comment);
-            repliesContainer.appendChild(commentElement);
+            const div = document.createElement('div');
+            div.className = 'p-3 bg-gray-50 rounded-md';
+            div.innerHTML = `
+                <div class="flex items-center space-x-2 mb-2">
+                    <div class="w-6 h-6 rounded-full bg-${comment.avatar_color || 'blue-500'} flex items-center justify-center text-xs text-white">
+                        ${comment.nickname ? comment.nickname.substring(0, 2).toUpperCase() : 'U'}
+                    </div>
+                    <span class="text-sm font-medium text-gray-700">${escapeHtml(comment.nickname)}</span>
+                    <span class="text-sm text-gray-500">• ${formatDate(comment.created_at)}</span>
+                </div>
+                <p class="text-gray-600">${escapeHtml(comment.content)}</p>
+            `;
+            repliesContainer.appendChild(div);
         });
     },
 
-    createCommentElement(comment) {
-        const commentDiv = document.createElement('div');
-        commentDiv.className = 'bg-gray-50 rounded-lg p-4 mb-3';
-
-        commentDiv.innerHTML = `
-            <div class="flex items-start justify-between mb-2">
-                <div class="flex items-center">
-                    <span class="font-medium text-gray-900">${escapeHtml(comment.author)}</span>
-                    <span class="text-gray-500 text-sm ml-2">${formatDate(comment.createdAt)}</span>
-                </div>
-            </div>
-            <p class="text-gray-700">${escapeHtml(comment.content)}</p>
-        `;
-
-        return commentDiv;
-    },
-
-    async createPost() {
-        const title = document.getElementById('thread-title').value;
-        const content = document.getElementById('thread-content').value;
-        const category = document.getElementById('thread-category').value;
-
-        if (!title || !content || !category) {
-            showNotification('Please fill in all fields', 'error');
+    async createPost(title, content, categoryId) {
+        if (!ForumApp.currentUser) {
+            DOM.loginModal.classList.remove('hidden');
             return;
         }
-
         try {
             const response = await fetch('/api/posts', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ title, content, category }),
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title, content, category_id: parseInt(categoryId) }),
+                credentials: 'include'
             });
 
             if (response.ok) {
-                this.clearThreadForm();
-                document.getElementById('thread-form')?.classList.add('hidden');
-                showNotification('Post created successfully!');
+                const post = await response.json();
+                DOM.threadForm.classList.add('hidden');
                 this.loadPosts();
+                showNotification('Post created successfully!');
             } else {
-                showNotification('Failed to create post', 'error');
+                const error = await response.text();
+                showNotification(error || 'Failed to create post', 'error');
             }
         } catch (error) {
+            console.error('Error creating post:', error);
             showNotification('Error creating post', 'error');
         }
     },
 
-    async createComment() {
-        const content = document.getElementById('reply-content').value;
-
-        if (!content) {
-            showNotification('Please enter a reply', 'error');
+    async createComment(postId, content) {
+        if (!ForumApp.currentUser) {
+            DOM.loginModal.classList.remove('hidden');
             return;
         }
-
         try {
             const response = await fetch('/api/comments', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    postId: ForumApp.currentThreadId,
-                    content
-                }),
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ post_id: postId, content }),
+                credentials: 'include'
             });
 
             if (response.ok) {
+                const comment = await response.json();
+                this.loadComments(postId);
                 document.getElementById('reply-content').value = '';
-                showNotification('Reply added successfully!');
-                this.loadComments(ForumApp.currentThreadId);
+                showNotification('Comment posted successfully!');
             } else {
-                showNotification('Failed to add reply', 'error');
+                const error = await response.text();
+                showNotification(error || 'Failed to post comment', 'error');
             }
         } catch (error) {
-            showNotification('Error adding reply', 'error');
+            console.error('Error creating comment:', error);
+            showNotification('Error posting comment', 'error');
+        }
+    },
+
+    async populateCategories() {
+        const categorySelect = document.getElementById('thread-category');
+        const categoryList = document.getElementById('category-list');
+        const mobileCategoryList = document.getElementById('mobile-category-list');
+        if (!categorySelect || !categoryList || !mobileCategoryList) return;
+
+        try {
+            const response = await fetch('/api/categories', { credentials: 'include' });
+            if (response.ok) {
+                const categories = await response.json();
+                categorySelect.innerHTML = '<option value="">Select a category</option>';
+                categoryList.innerHTML = '';
+                mobileCategoryList.innerHTML = '';
+
+                // Add 'All' option for category list
+                const allButton = document.createElement('button');
+                allButton.className = `px-3 py-1 rounded-md ${ForumApp.currentCategory === 'all' ? 'bg-blue-100 text-blue-700' : 'text-gray-700'}`;
+                allButton.dataset.category = 'all';
+                allButton.textContent = 'All';
+                allButton.addEventListener('click', () => {
+                    if (!ForumApp.currentUser) {
+                        DOM.loginModal.classList.remove('hidden');
+                        return;
+                    }
+                    ForumApp.currentCategory = 'all';
+                    document.querySelectorAll('#category-list button, #mobile-category-list button').forEach(btn => {
+                        btn.classList.remove('bg-blue-100', 'text-blue-700');
+                        btn.classList.add('text-gray-700');
+                    });
+                    allButton.classList.add('bg-blue-100', 'text-blue-700');
+                    document.getElementById('current-category').textContent = 'All';
+                    this.loadPosts();
+                });
+                categoryList.appendChild(allButton);
+                mobileCategoryList.appendChild(allButton.cloneNode(true));
+
+                categories.forEach(category => {
+                    // Populate select dropdown
+                    const option = document.createElement('option');
+                    option.value = category.id;
+                    option.textContent = category.name;
+                    categorySelect.appendChild(option);
+
+                    // Populate category list
+                    const button = document.createElement('button');
+                    button.className = `px-3 py-1 rounded-md ${ForumApp.currentCategory == category.id ? 'bg-blue-100 text-blue-700' : 'text-gray-700'}`;
+                    button.dataset.category = category.id;
+                    button.textContent = category.name;
+                    button.addEventListener('click', () => {
+                        if (!ForumApp.currentUser) {
+                            DOM.loginModal.classList.remove('hidden');
+                            return;
+                        }
+                        ForumApp.currentCategory = category.id;
+                        document.querySelectorAll('#category-list button, #mobile-category-list button').forEach(btn => {
+                            btn.classList.remove('bg-blue-100', 'text-blue-700');
+                            btn.classList.add('text-gray-700');
+                        });
+                        button.classList.add('bg-blue-100', 'text-blue-700');
+                        document.getElementById('current-category').textContent = category.name;
+                        this.loadPosts();
+                    });
+                    categoryList.appendChild(button);
+                    mobileCategoryList.appendChild(button.cloneNode(true));
+                });
+            } else {
+                throw new Error('Failed to load categories');
+            }
+        } catch (error) {
+            console.error('Error loading categories:', error);
+            // Fallback to static categories
+            const categories = [
+                { id: 1, name: 'General Discussion' },
+                { id: 2, name: 'Technology' },
+                { id: 3, name: 'Random' },
+                { id: 4, name: 'Help' }
+            ];
+            categorySelect.innerHTML = '<option value="">Select a category</option>';
+            categoryList.innerHTML = '';
+            mobileCategoryList.innerHTML = '';
+
+            const allButton = document.createElement('button');
+            allButton.className = `px-3 py-1 rounded-md ${ForumApp.currentCategory === 'all' ? 'bg-blue-100 text-blue-700' : 'text-gray-700'}`;
+            allButton.dataset.category = 'all';
+            allButton.textContent = 'All';
+            allButton.addEventListener('click', () => {
+                if (!ForumApp.currentUser) {
+                    DOM.loginModal.classList.remove('hidden');
+                    return;
+                }
+                ForumApp.currentCategory = 'all';
+                document.querySelectorAll('#category-list button, #mobile-category-list button').forEach(btn => {
+                    btn.classList.remove('bg-blue-100', 'text-blue-700');
+                    btn.classList.add('text-gray-700');
+                });
+                allButton.classList.add('bg-blue-100', 'text-blue-700');
+                document.getElementById('current-category').textContent = 'All';
+                this.loadPosts();
+            });
+            categoryList.appendChild(allButton);
+            mobileCategoryList.appendChild(allButton.cloneNode(true));
+
+            categories.forEach(category => {
+                const option = document.createElement('option');
+                option.value = category.id;
+                option.textContent = category.name;
+                categorySelect.appendChild(option);
+
+                const button = document.createElement('button');
+                button.className = `px-3 py-1 rounded-md ${ForumApp.currentCategory == category.id ? 'bg-blue-100 text-blue-700' : 'text-gray-700'}`;
+                button.dataset.category = category.id;
+                button.textContent = category.name;
+                button.addEventListener('click', () => {
+                    if (!ForumApp.currentUser) {
+                        DOM.loginModal.classList.remove('hidden');
+                        return;
+                    }
+                    ForumApp.currentCategory = category.id;
+                    document.querySelectorAll('#category-list button, #mobile-category-list button').forEach(btn => {
+                        btn.classList.remove('bg-blue-100', 'text-blue-700');
+                        btn.classList.add('text-gray-700');
+                    });
+                    button.classList.add('bg-blue-100', 'text-blue-700');
+                    document.getElementById('current-category').textContent = category.name;
+                    this.loadPosts();
+                });
+                categoryList.appendChild(button);
+                mobileCategoryList.appendChild(button.cloneNode(true));
+            });
         }
     },
 
     setupEventListeners() {
-        // Category navigation
-        document.querySelectorAll('[data-category]').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                ForumApp.currentCategory = e.target.dataset.category;
-                
-                // Update active category button
-                document.querySelectorAll('[data-category]').forEach(b => b.classList.remove('active'));
-                e.target.classList.add('active');
-                
-                this.loadPosts();
-            });
-        });
-
-        // New thread button
         document.getElementById('new-thread-btn')?.addEventListener('click', () => {
-            document.getElementById('thread-form')?.classList.remove('hidden');
+            if (!ForumApp.currentUser) {
+                DOM.loginModal.classList.remove('hidden');
+                return;
+            }
+            DOM.threadForm.classList.toggle('hidden');
         });
 
-        // Cancel thread button
+        document.getElementById('post-thread-btn')?.addEventListener('click', () => {
+            if (!ForumApp.currentUser) {
+                DOM.loginModal.classList.remove('hidden');
+                return;
+            }
+            const title = document.getElementById('thread-title').value.trim();
+            const content = document.getElementById('thread-content').value.trim();
+            const categoryId = document.getElementById('thread-category').value;
+
+            if (!title || !content || !categoryId) {
+                showNotification('Please fill in all fields', 'error');
+                return;
+            }
+
+            this.createPost(title, content, categoryId);
+        });
+
         document.getElementById('cancel-thread-btn')?.addEventListener('click', () => {
-            document.getElementById('thread-form')?.classList.add('hidden');
-            this.clearThreadForm();
+            DOM.threadForm.classList.add('hidden');
+            document.getElementById('thread-title').value = '';
+            document.getElementById('thread-content').value = '';
+            document.getElementById('thread-category').value = '';
         });
 
-        // Post creation
-        document.getElementById('post-thread-btn')?.addEventListener('click', () => this.createPost());
+        document.getElementById('post-reply-btn')?.addEventListener('click', () => {
+            if (!ForumApp.currentUser) {
+                DOM.loginModal.classList.remove('hidden');
+                return;
+            }
+            const content = document.getElementById('reply-content').value.trim();
+            if (!content) {
+                showNotification('Please enter a comment', 'error');
+                return;
+            }
+            this.createComment(ForumApp.currentThreadId, content);
+        });
 
-        // Comment creation
-        document.getElementById('post-reply-btn')?.addEventListener('click', () => this.createComment());
-
-        // Back to threads button
         document.getElementById('back-to-threads')?.addEventListener('click', () => {
-            document.getElementById('thread-detail')?.classList.add('hidden');
-            document.getElementById('threads-container')?.parentElement.classList.remove('hidden');
+            DOM.threadDetail.classList.add('hidden');
+            DOM.threadsContainer.classList.remove('hidden');
             ForumApp.currentThreadId = null;
+        });
+
+        document.getElementById('thread-category')?.addEventListener('change', (e) => {
+            if (!ForumApp.currentUser) {
+                DOM.loginModal.classList.remove('hidden');
+                return;
+            }
+            ForumApp.currentCategory = e.target.value || 'all';
+            this.loadPosts();
+        });
+
+        document.getElementById('category-list')?.addEventListener('click', (e) => {
+            if (!ForumApp.currentUser) {
+                DOM.loginModal.classList.remove('hidden');
+                return;
+            }
+            const button = e.target.closest('[data-category]');
+            if (button) {
+                ForumApp.currentCategory = button.dataset.category || 'all';
+                document.querySelectorAll('#category-list button').forEach(btn => {
+                    btn.classList.remove('bg-blue-100', 'text-blue-700');
+                    btn.classList.add('text-gray-700');
+                });
+                button.classList.add('bg-blue-100', 'text-blue-700');
+                document.getElementById('current-category').textContent = button.textContent;
+                this.loadPosts();
+            }
+        });
+
+        document.getElementById('mobile-category-list')?.addEventListener('click', (e) => {
+            if (!ForumApp.currentUser) {
+                DOM.loginModal.classList.remove('hidden');
+                return;
+            }
+            const button = e.target.closest('[data-category]');
+            if (button) {
+                ForumApp.currentCategory = button.dataset.category || 'all';
+                document.getElementById('current-category').textContent = button.textContent;
+                this.loadPosts();
+                toggleMobileMenu();
+            }
         });
     }
 };
 
-// Initialize posts event listeners when DOM is ready
 document.addEventListener('DOMContentLoaded', function() {
     Posts.setupEventListeners();
+    Posts.populateCategories();
 });
