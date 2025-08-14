@@ -85,9 +85,6 @@ function showLoggedInUI() {
     // Safely update username displays if they exist
     const usernameDisplay = document.getElementById('username-display');
     if (usernameDisplay) usernameDisplay.textContent = ForumApp.currentUser?.nickname || 'User';
-
-    const floatingUsername = document.getElementById('floating-username');
-    if (floatingUsername) floatingUsername.textContent = ForumApp.currentUser?.nickname || 'User';
     document.getElementById('floating-logout')?.classList.remove('hidden');
     const avatar = document.getElementById('user-avatar');
     if (avatar) {
@@ -107,9 +104,6 @@ function showLoggedOutUI() {
     // Safely update username displays if they exist
     const usernameDisplay = document.getElementById('username-display');
     if (usernameDisplay) usernameDisplay.textContent = 'Guest';
-
-    const floatingUsername = document.getElementById('floating-username');
-    if (floatingUsername) floatingUsername.textContent = 'Guest';
 }
 
 function toggleMobileMenu() {
@@ -164,8 +158,13 @@ function loadConversations() {
 
 function startPrivateChat(conversation) {
     ForumApp.currentChatUser = conversation;
-    document.getElementById('chat-with').textContent = conversation.with;
-    document.getElementById('mobile-chat-with').textContent = conversation.with;
+
+    // Safely update chat headers
+    const chatWith = document.getElementById('chat-with');
+    if (chatWith) chatWith.textContent = conversation.with;
+
+    const mobileChatWith = document.getElementById('mobile-chat-with');
+    if (mobileChatWith) mobileChatWith.textContent = conversation.with;
     const avatar = document.getElementById('chat-avatar');
     const mobileAvatar = document.getElementById('mobile-chat-avatar');
     if (avatar && mobileAvatar) {

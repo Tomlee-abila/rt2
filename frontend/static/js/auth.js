@@ -8,7 +8,12 @@ window.Auth = {
                 showLoggedInUI();
                 Posts.loadPosts();
                 WebSocketClient.connect();
+            } else if (response.status === 401) {
+                // User is not authenticated, this is expected for first visit
+                showLoggedOutUI();
             } else {
+                // Other error occurred
+                console.error('Auth check failed with status:', response.status);
                 showLoggedOutUI();
             }
         } catch (error) {
