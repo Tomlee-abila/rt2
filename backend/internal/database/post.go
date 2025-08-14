@@ -68,7 +68,7 @@ func GetPosts(categoryID int) ([]models.Post, error) {
 
 	for rows.Next() {
 		var post models.Post
-		if err := rows.Scan(&post.ID, &post.UserID, &post.Title, &post.Content, &post.CategoryID, &post.CategoryName, &post.CreatedAt, &post.UpdatedAt, &post.Nickname, &post.AvatarColor, &post.CommentCount); err != nil {
+		if err := rows.Scan(&post.ID, &post.UserID, &post.Title, &post.Content, &post.CategoryID, &post.CategoryName, &post.CreatedAt, &post.UpdatedAt, &post.Author, &post.AuthorColor, &post.ReplyCount); err != nil {
 			return posts, err
 		}
 		posts = append(posts, post)
@@ -114,7 +114,7 @@ func GetComments(postID int) ([]models.Comment, error) {
 
 	for rows.Next() {
 		var comment models.Comment
-		if err := rows.Scan(&comment.ID, &comment.PostID, &comment.UserID, &comment.Content, &comment.CreatedAt, &comment.UpdatedAt, &comment.Nickname, &comment.AvatarColor); err != nil {
+		if err := rows.Scan(&comment.ID, &comment.PostID, &comment.UserID, &comment.Content, &comment.CreatedAt, &comment.UpdatedAt, &comment.Author, &comment.AuthorColor); err != nil {
 			return comments, err
 		}
 		comments = append(comments, comment)

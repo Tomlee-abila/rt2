@@ -234,19 +234,26 @@ func (h *Handlers) HandlePosts(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(posts)
 
 	case "POST":
-		var post models.Post
-		if err := json.NewDecoder(r.Body).Decode(&post); err != nil {
+		var req models.CreatePostRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, "Invalid JSON", http.StatusBadRequest)
 			return
 		}
 
-		// Validate post
-		if err := post.ValidatePost(); err != nil {
+		// Validate post request
+		if err := req.Validate(); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
-		post.UserID = userID
+		// Create post from request
+		post := models.Post{
+			UserID:     userID,
+			Title:      req.Title,
+			Content:    req.Content,
+			CategoryID: req.CategoryID,
+		}
+
 		if err := database.CreatePost(&post); err != nil {
 			http.Error(w, "Error creating post", http.StatusInternalServerError)
 			return
@@ -300,19 +307,25 @@ func (h *Handlers) HandleComments(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(comments)
 
 	case "POST":
-		var comment models.Comment
-		if err := json.NewDecoder(r.Body).Decode(&comment); err != nil {
+		var req models.CreateCommentRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, "Invalid JSON", http.StatusBadRequest)
 			return
 		}
 
-		// Validate comment
-		if err := comment.ValidateComment(); err != nil {
+		// Validate comment request
+		if err := req.Validate(); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
-		comment.UserID = userID
+		// Create comment from request
+		comment := models.Comment{
+			PostID:  req.PostID,
+			UserID:  userID,
+			Content: req.Content,
+		}
+
 		if err := database.CreateComment(&comment); err != nil {
 			http.Error(w, "Error creating comment", http.StatusInternalServerError)
 			return

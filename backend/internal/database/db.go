@@ -35,8 +35,6 @@ func InitDB() error {
 func runMigrations() error {
 	migrationFiles := []string{
 		"migrations/001_init.sql",
-		"migrations/002_add_user_status.sql",
-		"migrations/003_add_categories.sql",
 	}
 
 	for _, file := range migrationFiles {
@@ -57,66 +55,13 @@ func executeMigrationFile(filename string) error {
 		return err
 	}
 
-	// Special handling for the user status migration
-	if filename == "migrations/002_add_user_status.sql" {
-		return executeUserStatusMigration()
-	}
+
 
 	_, err = DB.Exec(string(content))
 	return err
 }
 
-// executeUserStatusMigration handles the user status migration with column existence checks
-func executeUserStatusMigration() error {
-	// Check if is_online column exists
-	var columnExists bool
-	err := DB.QueryRow(`
-		SELECT COUNT(*) > 0
-		FROM pragma_table_info('users')
-		WHERE name = 'is_online'
-	`).Scan(&columnExists)
 
-	if err != nil {
-		return err
-	}
-
-	// Add columns only if they don't exist
-	if !columnExists {
-		_, err = DB.Exec("ALTER TABLE users ADD COLUMN is_online BOOLEAN DEFAULT FALSE")
-		if err != nil {
-			return err
-		}
-
-		_, err = DB.Exec("ALTER TABLE users ADD COLUMN last_seen DATETIME DEFAULT CURRENT_TIMESTAMP")
-		if err != nil {
-			return err
-		}
-	}
-
-	// Create indexes (safe to run multiple times)
-	_, err = DB.Exec("CREATE INDEX IF NOT EXISTS idx_users_is_online ON users(is_online)")
-	if err != nil {
-		return err
-	}
-
-	_, err = DB.Exec("CREATE INDEX IF NOT EXISTS idx_users_last_seen ON users(last_seen DESC)")
-	if err != nil {
-		return err
-	}
-
-	// Create trigger (safe to run multiple times)
-	_, err = DB.Exec(`
-		CREATE TRIGGER IF NOT EXISTS update_users_last_seen
-		AFTER UPDATE OF is_online ON users
-		FOR EACH ROW
-		WHEN NEW.is_online = 1
-		BEGIN
-			UPDATE users SET last_seen = CURRENT_TIMESTAMP WHERE id = NEW.id;
-		END
-	`)
-
-	return err
-}
 
 // CloseDB closes the database connection
 func CloseDB() error {

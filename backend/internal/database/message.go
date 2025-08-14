@@ -29,8 +29,8 @@ func CreateMessage(message *models.Message) error {
 	if err != nil {
 		return err
 	}
-	message.Sender = sender.Nickname
-	message.Recipient = recipient.Nickname
+	message.SenderName = sender.Nickname
+	message.RecipientName = recipient.Nickname
 
 	return nil
 }
@@ -55,7 +55,7 @@ func GetMessages(userID, otherUserID, offset int) ([]models.Message, error) {
 
 	for rows.Next() {
 		var msg models.Message
-		if err := rows.Scan(&msg.ID, &msg.SenderID, &msg.RecipientID, &msg.Content, &msg.IsRead, &msg.CreatedAt, &msg.Sender, &msg.Recipient); err != nil {
+		if err := rows.Scan(&msg.ID, &msg.SenderID, &msg.RecipientID, &msg.Content, &msg.IsRead, &msg.CreatedAt, &msg.SenderName, &msg.RecipientName); err != nil {
 			return messages, err
 		}
 		messages = append(messages, msg)

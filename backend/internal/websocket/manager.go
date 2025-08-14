@@ -107,14 +107,7 @@ func (h *Hub) broadcastOnlineUsers() {
 	var userStatuses []UserStatus
 	for _, user := range users {
 		// Parse LastSeen from string to time.Time
-		var lastSeen time.Time
-		if user.LastSeen != "" {
-			lastSeen, err = time.Parse("2006-01-02 15:04:05", user.LastSeen)
-			if err != nil {
-				log.Printf("Error parsing LastSeen for user %d: %v", user.ID, err)
-				continue
-			}
-		}
+		lastSeen := user.LastSeen
 		userStatuses = append(userStatuses, UserStatus{
 			ID:          user.ID,
 			Nickname:    user.Nickname,
@@ -182,7 +175,7 @@ func (h *Hub) HandlePrivateMessage(client *Client, msg map[string]interface{}) {
 		SenderID:    client.userID,
 		RecipientID: int(recipientID),
 		Content:     content,
-		CreatedAt:   time.Now().Format("2006-01-02 15:04:05"), // Format time.Time to string
+		CreatedAt:   time.Now(),
 	}
 
 	if err := database.CreateMessage(message); err != nil {
@@ -197,12 +190,8 @@ func (h *Hub) HandlePrivateMessage(client *Client, msg map[string]interface{}) {
 		return
 	}
 
-	// Parse message.CreatedAt from string to time.Time for NewMessageEvent
-	createdAt, err := time.Parse("2006-01-02 15:04:05", message.CreatedAt)
-	if err != nil {
-		log.Printf("Error parsing message.CreatedAt: %v", err)
-		return
-	}
+	// Use message.CreatedAt directly as it's already time.Time
+	createdAt := message.CreatedAt
 
 	// Create response
 	response := WebSocketMessage{

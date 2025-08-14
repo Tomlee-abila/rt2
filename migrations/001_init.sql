@@ -1,36 +1,33 @@
--- Add categories table and update posts table to use foreign key
+-- Real-Time Forum Database Schema
+-- Complete database initialization with all required tables
 
--- Create categories table
+-- Users table
+CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    first_name TEXT NOT NULL,
+    last_name TEXT NOT NULL,
+    nickname TEXT NOT NULL UNIQUE,
+    email TEXT NOT NULL UNIQUE,
+    age INTEGER NOT NULL CHECK (age >= 13 AND age <= 120),
+    gender TEXT NOT NULL CHECK (gender IN ('male', 'female', 'other', 'prefer-not-to-say')),
+    password_hash TEXT NOT NULL,
+    avatar_color TEXT DEFAULT 'blue-500',
+    is_online BOOLEAN DEFAULT FALSE,
+    last_seen DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Categories table
 CREATE TABLE IF NOT EXISTS categories (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL UNIQUE,
+    description TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- Insert predefined categories
-INSERT OR IGNORE INTO categories (name) VALUES
-    ('General Discussion'),
-    ('Technology'),
-    ('Random'),
-    ('Help');
-
--- Add temporary column for new category_id in posts
-ALTER TABLE posts ADD COLUMN category_id INTEGER;
-
--- Migrate existing category data to category_id
-UPDATE posts SET category_id = (
-    SELECT id FROM categories 
-    WHERE name = CASE posts.category
-        WHEN 'general' THEN 'General Discussion'
-        WHEN 'technology' THEN 'Technology'
-        WHEN 'random' THEN 'Random'
-        WHEN 'help' THEN 'Help'
-    END
-);
-
--- Drop old category column and add foreign key constraint
--- Note: SQLite doesn't support DROP COLUMN directly, so we need to create a new table
-CREATE TABLE IF NOT EXISTS posts_new (
+-- Posts table
+CREATE TABLE IF NOT EXISTS posts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
     title TEXT NOT NULL,
@@ -42,24 +39,95 @@ CREATE TABLE IF NOT EXISTS posts_new (
     FOREIGN KEY (category_id) REFERENCES categories (id) ON DELETE RESTRICT
 );
 
--- Copy data to new posts table
-INSERT INTO posts_new (id, user_id, title, content, category_id, created_at, updated_at)
-SELECT id, user_id, title, content, category_id, created_at, updated_at
-FROM posts;
+-- Comments table
+CREATE TABLE IF NOT EXISTS comments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    post_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    content TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (post_id) REFERENCES posts (id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+);
 
--- Drop old posts table and rename new one
-DROP TABLE posts;
-ALTER TABLE posts_new RENAME TO posts;
+-- Messages table for private messaging
+CREATE TABLE IF NOT EXISTS messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sender_id INTEGER NOT NULL,
+    recipient_id INTEGER NOT NULL,
+    content TEXT NOT NULL,
+    is_read BOOLEAN DEFAULT FALSE,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (sender_id) REFERENCES users (id) ON DELETE CASCADE,
+    FOREIGN KEY (recipient_id) REFERENCES users (id) ON DELETE CASCADE
+);
 
--- Recreate indexes
-CREATE INDEX IF NOT EXISTS idx_posts_category ON posts(category_id);
-CREATE INDEX IF NOT EXISTS idx_posts_created_at ON posts(created_at DESC);
+-- Sessions table for user authentication
+CREATE TABLE IF NOT EXISTS sessions (
+    id TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    expires_at DATETIME NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+);
+
+-- Create indexes for better performance
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_users_nickname ON users(nickname);
+CREATE INDEX IF NOT EXISTS idx_users_is_online ON users(is_online);
+CREATE INDEX IF NOT EXISTS idx_users_last_seen ON users(last_seen DESC);
+
 CREATE INDEX IF NOT EXISTS idx_posts_user_id ON posts(user_id);
+CREATE INDEX IF NOT EXISTS idx_posts_category_id ON posts(category_id);
+CREATE INDEX IF NOT EXISTS idx_posts_created_at ON posts(created_at DESC);
 
--- Recreate trigger for updated_at
-CREATE TRIGGER IF NOT EXISTS update_posts_updated_at 
+CREATE INDEX IF NOT EXISTS idx_comments_post_id ON comments(post_id);
+CREATE INDEX IF NOT EXISTS idx_comments_user_id ON comments(user_id);
+CREATE INDEX IF NOT EXISTS idx_comments_created_at ON comments(created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_messages_sender_id ON messages(sender_id);
+CREATE INDEX IF NOT EXISTS idx_messages_recipient_id ON messages(recipient_id);
+CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_messages_is_read ON messages(is_read);
+
+CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);
+
+-- Create triggers for updated_at timestamps
+CREATE TRIGGER IF NOT EXISTS update_users_updated_at
+    AFTER UPDATE ON users
+    FOR EACH ROW
+BEGIN
+    UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+END;
+
+CREATE TRIGGER IF NOT EXISTS update_posts_updated_at
     AFTER UPDATE ON posts
     FOR EACH ROW
 BEGIN
     UPDATE posts SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
 END;
+
+CREATE TRIGGER IF NOT EXISTS update_comments_updated_at
+    AFTER UPDATE ON comments
+    FOR EACH ROW
+BEGIN
+    UPDATE comments SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+END;
+
+-- Trigger to automatically update last_seen when user status changes
+CREATE TRIGGER IF NOT EXISTS update_users_last_seen
+    AFTER UPDATE OF is_online ON users
+    FOR EACH ROW
+    WHEN NEW.is_online = 1
+BEGIN
+    UPDATE users SET last_seen = CURRENT_TIMESTAMP WHERE id = NEW.id;
+END;
+
+-- Insert default categories
+INSERT OR IGNORE INTO categories (name, description) VALUES
+    ('General Discussion', 'General topics and discussions'),
+    ('Technology', 'Technology, programming, and development topics'),
+    ('Random', 'Random thoughts and off-topic discussions'),
+    ('Help & Support', 'Get help and support from the community');
