@@ -82,8 +82,12 @@ function showLoggedInUI() {
     DOM.forumContent.classList.remove('hidden');
     DOM.authButtons.classList.add('hidden');
     DOM.userMenuContainer.classList.remove('hidden');
-    document.getElementById('username-display').textContent = ForumApp.currentUser?.nickname || 'User';
-    document.getElementById('floating-username').textContent = ForumApp.currentUser?.nickname || 'User';
+    // Safely update username displays if they exist
+    const usernameDisplay = document.getElementById('username-display');
+    if (usernameDisplay) usernameDisplay.textContent = ForumApp.currentUser?.nickname || 'User';
+
+    const floatingUsername = document.getElementById('floating-username');
+    if (floatingUsername) floatingUsername.textContent = ForumApp.currentUser?.nickname || 'User';
     document.getElementById('floating-logout')?.classList.remove('hidden');
     const avatar = document.getElementById('user-avatar');
     if (avatar) {
@@ -100,8 +104,12 @@ function showLoggedOutUI() {
     DOM.authButtons.classList.remove('hidden');
     DOM.userMenuContainer.classList.add('hidden');
     document.getElementById('floating-logout')?.classList.add('hidden');
-    document.getElementById('username-display').textContent = 'Guest';
-    document.getElementById('floating-username').textContent = 'Guest';
+    // Safely update username displays if they exist
+    const usernameDisplay = document.getElementById('username-display');
+    if (usernameDisplay) usernameDisplay.textContent = 'Guest';
+
+    const floatingUsername = document.getElementById('floating-username');
+    if (floatingUsername) floatingUsername.textContent = 'Guest';
 }
 
 function toggleMobileMenu() {

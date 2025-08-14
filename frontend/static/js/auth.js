@@ -1,9 +1,7 @@
 window.Auth = {
     async checkAuthStatus() {
         try {
-            const response = await fetch('/api/users/me', {
-                credentials: 'include'
-            });
+            const response = await fetch('/api/users/me', { credentials: 'include' });
             if (response.ok) {
                 const user = await response.json();
                 ForumApp.currentUser = user;
@@ -16,7 +14,6 @@ window.Auth = {
         } catch (error) {
             console.error('Auth check failed:', error);
             showLoggedOutUI();
-            showNotification('Failed to verify session', 'error');
         }
     },
 
