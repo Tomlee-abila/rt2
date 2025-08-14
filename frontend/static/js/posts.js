@@ -152,7 +152,7 @@ window.Posts = {
             const response = await fetch('/api/posts', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ title, content, category_id: parseInt(categoryId) }),
+                body: JSON.stringify({ title, content, categoryId: parseInt(categoryId) }),
                 credentials: 'include'
             });
 
@@ -180,7 +180,7 @@ window.Posts = {
             const response = await fetch('/api/comments', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ post_id: postId, content }),
+                body: JSON.stringify({ postId: postId, content }),
                 credentials: 'include'
             });
 
