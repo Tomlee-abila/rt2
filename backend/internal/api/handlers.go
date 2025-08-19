@@ -196,12 +196,16 @@ func (h *Handlers) HandleLogout(w http.ResponseWriter, r *http.Request) {
 	if err == nil {
 		// Delete session from database
 		utils.DeleteSession(cookie.Value)
+
+			// Clear cookie
+		utils.ClearSessionCookie(w)
+
+		w.WriteHeader(http.StatusOK)
+	}else {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 	}
 
-	// Clear cookie
-	utils.ClearSessionCookie(w)
-
-	w.WriteHeader(http.StatusOK)
+	
 }
 
 // HandlePosts handles post operations

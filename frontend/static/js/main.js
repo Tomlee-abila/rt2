@@ -100,7 +100,7 @@ function showLoggedOutUI() {
     DOM.forumContent.classList.add('hidden');
     DOM.authButtons.classList.remove('hidden');
     DOM.userMenuContainer.classList.add('hidden');
-    document.getElementById('floating-logout')?.classList.add('hidden');
+    document.getElementById('floating-logout').classList.add('hidden');
     // Safely update username displays if they exist
     const usernameDisplay = document.getElementById('username-display');
     if (usernameDisplay) usernameDisplay.textContent = 'Guest';
@@ -200,24 +200,25 @@ async function populatePopularCategories() {
     } catch (error) {
         console.error('Error loading categories:', error);
         // Fallback to static categories
-        const categories = [
-            { id: 1, name: 'General Discussion' },
-            { id: 2, name: 'Technology' },
-            { id: 3, name: 'Random' },
-            { id: 4, name: 'Help' }
-        ];
-        popularCategories.innerHTML = '';
-        categories.forEach(category => {
-            const div = document.createElement('div');
-            div.className = 'bg-gray-100 p-3 rounded-md text-sm text-gray-700';
-            div.textContent = category.name;
-            popularCategories.appendChild(div);
-        });
+
+        // const categories = [
+        //     { id: 1, name: 'General Discussion' },
+        //     { id: 2, name: 'Technology' },
+        //     { id: 3, name: 'Random' },
+        //     { id: 4, name: 'Help' }
+        // ];
+        // popularCategories.innerHTML = '';
+        // categories.forEach(category => {
+        //     const div = document.createElement('div');
+        //     div.className = 'bg-gray-100 p-3 rounded-md text-sm text-gray-700';
+        //     div.textContent = category.name;
+        //     popularCategories.appendChild(div);
+        // });
     }
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-    Auth.checkAuthStatus();
+    // Auth.checkAuthStatus();
     document.getElementById('mobile-menu-btn')?.addEventListener('click', toggleMobileMenu);
     document.getElementById('close-mobile-menu')?.addEventListener('click', toggleMobileMenu);
     populatePopularCategories();
