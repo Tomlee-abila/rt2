@@ -74,12 +74,6 @@ func (h *Handlers) HandleProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate user data
-	if err := userData.ValidateUser(); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
 	// Update user in database
 	if err := database.UpdateUser(userID, &userData); err != nil {
 		http.Error(w, "Error updating profile", http.StatusInternalServerError)
