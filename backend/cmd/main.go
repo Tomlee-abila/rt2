@@ -25,8 +25,10 @@ func main() {
 	// Setup routes
 	setupRoutes(handlers)
 
-	log.Println("Server starting on :8080")
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	port := ":8080"
+	log.Printf("Server started on port %s", port)
+	log.Fatal(http.ListenAndServe(port, nil))
+													
 }
 
 func setupRoutes(handlers *api.Handlers) {
