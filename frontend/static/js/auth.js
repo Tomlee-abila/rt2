@@ -106,6 +106,14 @@ window.Auth = {
             DOM.registerModal.classList.remove('hidden');
         });
 
+        document.getElementById('welcome-login-btn')?.addEventListener('click', () => {
+            DOM.loginModal.classList.remove('hidden');
+        });
+
+        document.getElementById('welcome-register-btn')?.addEventListener('click', () => {
+            DOM.registerModal.classList.remove('hidden');
+        });
+
         document.getElementById('switch-to-register')?.addEventListener('click', () => {
             DOM.loginModal.classList.add('hidden');
             DOM.registerModal.classList.remove('hidden');
