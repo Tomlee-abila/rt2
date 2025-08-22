@@ -27,9 +27,10 @@ func main() {
 	setupRoutes(handlers)
 
 	port := ":8080"
-
-	log.Println("Server starting on http://localhost" + port)
+	log.Printf("Server started on port %s", port)
+	log.Printf("Open http://localhost:%s in your browser to access the server", port)
 	log.Fatal(http.ListenAndServe(port, nil))
+													
 }
 
 func setupRoutes(handlers *api.Handlers) {
