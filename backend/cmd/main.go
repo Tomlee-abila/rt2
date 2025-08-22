@@ -28,7 +28,7 @@ func main() {
 
 	port := ":8080"
 	log.Printf("Server started on port %s", port)
-	log.Printf("Open http://localhost:%s in your browser to access the server", port)
+	log.Printf("Open http://localhost%s in your browser to access the server", port)
 	log.Fatal(http.ListenAndServe(port, nil))
 													
 }
