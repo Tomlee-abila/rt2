@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
+
 	"real-time-forum/backend/internal/api"
 	"real-time-forum/backend/internal/database"
 	"real-time-forum/backend/internal/websocket"
@@ -25,8 +26,10 @@ func main() {
 	// Setup routes
 	setupRoutes(handlers)
 
-	log.Println("Server starting on :8080")
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	port := ":8080"
+
+	log.Println("Server starting on http://localhost" + port)
+	log.Fatal(http.ListenAndServe(port, nil))
 }
 
 func setupRoutes(handlers *api.Handlers) {
