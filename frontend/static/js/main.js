@@ -122,7 +122,7 @@ function updateOnlineCount() {
         document.getElementById('mobile-online-count')
     ];
     onlineCountElements.forEach(el => {
-        if (el) el.textContent = count;
+        if (el) el.textContent = `${count} online`;
     });
 }
 
