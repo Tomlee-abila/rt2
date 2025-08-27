@@ -72,7 +72,9 @@ window.Auth = {
                 return true;
             } else {
                 const error = await response.text();
-                showNotification(error || 'Registration failed', 'error');
+                const errorDiv = document.getElementById('register-error');
+                errorDiv.textContent = error || 'Registration failed';
+                errorDiv.classList.remove('hidden');
                 return false;
             }
         } catch (error) {
