@@ -103,7 +103,7 @@ function showLoggedOutUI() {
     DOM.forumContent.classList.add('hidden');
     DOM.authButtons.classList.remove('hidden');
     DOM.userMenuContainer.classList.add('hidden');
-    document.getElementById('floating-logout')?.classList.add('hidden');
+    document.getElementById('online-count').classList.add('hidden');
     // Safely update username displays if they exist
     const usernameDisplay = document.getElementById('username-display');
     if (usernameDisplay) usernameDisplay.textContent = 'Guest';
