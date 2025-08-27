@@ -75,6 +75,7 @@ window.Auth = {
                 const errorDiv = document.getElementById('register-error');
                 errorDiv.textContent = error || 'Registration failed';
                 errorDiv.classList.remove('hidden');
+                console.error(error ,'Registration failed with status:', response.status);
                 return false;
             }
         } catch (error) {
