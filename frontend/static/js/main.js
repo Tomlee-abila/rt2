@@ -221,7 +221,7 @@ async function populatePopularCategories() {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Auth.checkAuthStatus();
+    Auth.checkAuthStatus();
     document.getElementById('mobile-menu-btn')?.addEventListener('click', toggleMobileMenu);
     document.getElementById('close-mobile-menu')?.addEventListener('click', toggleMobileMenu);
     populatePopularCategories();
