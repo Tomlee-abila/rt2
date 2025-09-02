@@ -2,6 +2,7 @@ package database
 
 import (
 	"database/sql"
+	"errors"
 	"real-time-forum/backend/internal/models"
 	"strings"
 
@@ -114,11 +115,43 @@ func GetAllUsers() ([]models.User, error) {
 
 // UpdateUser updates a user's profile data
 func UpdateUser(userID int, user *models.User) error {
-	_, err := DB.Exec(`
+	// Get the existing user data
+	existingUser, err := GetUserByID(userID)
+	if err != nil {
+		return err
+	}
+
+	// Update fields only if they are not empty
+	if user.Nickname != "" {
+		existingUser.Nickname = user.Nickname
+	}
+	if user.Email != "" {
+		existingUser.Email = user.Email
+	}
+	if user.FirstName != "" {
+		existingUser.FirstName = user.FirstName
+	}
+	if user.LastName != "" {
+		existingUser.LastName = user.LastName
+	}
+	if user.Age != 0 {
+		if user.Age < 13{
+			return errors.New("invalid age: must be between 13 and 120")
+		}
+		existingUser.Age = user.Age
+	}
+	if user.Gender != "" {
+		existingUser.Gender = user.Gender
+	}
+	if user.AvatarColor != "" {
+		existingUser.AvatarColor = user.AvatarColor
+	}
+
+	_, err = DB.Exec(`
 		UPDATE users
 		SET nickname = ?, email = ?, first_name = ?, last_name = ?, age = ?, gender = ?, avatar_color = ?
 		WHERE id = ?
-	`, user.Nickname, user.Email, user.FirstName, user.LastName, user.Age, user.Gender, user.AvatarColor, userID)
+	`, existingUser.Nickname, existingUser.Email, existingUser.FirstName, existingUser.LastName, existingUser.Age, existingUser.Gender, existingUser.AvatarColor, userID)
 	if err != nil {
 		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
 			return ErrUserAlreadyExists

@@ -72,7 +72,10 @@ window.Auth = {
                 return true;
             } else {
                 const error = await response.text();
-                showNotification(error || 'Registration failed', 'error');
+                const errorDiv = document.getElementById('register-error');
+                errorDiv.textContent = error || 'Registration failed';
+                errorDiv.classList.remove('hidden');
+                console.error(error ,'Registration failed with status:', response.status);
                 return false;
             }
         } catch (error) {
@@ -106,6 +109,14 @@ window.Auth = {
             DOM.registerModal.classList.remove('hidden');
         });
 
+        document.getElementById('welcome-login-btn')?.addEventListener('click', () => {
+            DOM.loginModal.classList.remove('hidden');
+        });
+
+        document.getElementById('welcome-register-btn')?.addEventListener('click', () => {
+            DOM.registerModal.classList.remove('hidden');
+        });
+
         document.getElementById('switch-to-register')?.addEventListener('click', () => {
             DOM.loginModal.classList.add('hidden');
             DOM.registerModal.classList.remove('hidden');
@@ -114,6 +125,14 @@ window.Auth = {
         document.getElementById('switch-to-login')?.addEventListener('click', () => {
             DOM.registerModal.classList.add('hidden');
             DOM.loginModal.classList.remove('hidden');
+        });
+
+        document.getElementById('close-login-modal')?.addEventListener('click', () => {
+            DOM.loginModal.classList.add('hidden');
+        });
+
+        document.getElementById('close-register-modal')?.addEventListener('click', () => {
+            DOM.registerModal.classList.add('hidden');
         });
 
         document.getElementById('login-btn')?.addEventListener('click', this.handleLogin);

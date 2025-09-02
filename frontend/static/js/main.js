@@ -14,7 +14,8 @@ const DOM = {
     chatWindow: document.getElementById('chat-window'),
     authButtons: document.getElementById('auth-buttons'),
     userMenuContainer: document.getElementById('user-menu-container'),
-    notification: document.getElementById('notification')
+    notification: document.getElementById('notification'),
+    floatingLogout: document.getElementById('floating-logout')
 };
 
 const ForumApp = {
@@ -79,6 +80,7 @@ function showLoggedInUI() {
     if (!DOM.welcomeScreen || !DOM.forumContent || !DOM.authButtons || !DOM.userMenuContainer) return;
 
     DOM.welcomeScreen.classList.add('hidden');
+    DOM.floatingLogout.classList.remove('hidden');
     DOM.forumContent.classList.remove('hidden');
     DOM.authButtons.classList.add('hidden');
     DOM.userMenuContainer.classList.remove('hidden');
@@ -97,10 +99,11 @@ function showLoggedOutUI() {
     if (!DOM.welcomeScreen || !DOM.forumContent || !DOM.authButtons || !DOM.userMenuContainer) return;
 
     DOM.welcomeScreen.classList.remove('hidden');
+    DOM.floatingLogout.classList.add('hidden');
     DOM.forumContent.classList.add('hidden');
     DOM.authButtons.classList.remove('hidden');
     DOM.userMenuContainer.classList.add('hidden');
-    document.getElementById('floating-logout').classList.add('hidden');
+    document.getElementById('online-count').classList.add('hidden');
     // Safely update username displays if they exist
     const usernameDisplay = document.getElementById('username-display');
     if (usernameDisplay) usernameDisplay.textContent = 'Guest';
@@ -119,7 +122,7 @@ function updateOnlineCount() {
         document.getElementById('mobile-online-count')
     ];
     onlineCountElements.forEach(el => {
-        if (el) el.textContent = count;
+        if (el) el.textContent = `${count} online`;
     });
 }
 
