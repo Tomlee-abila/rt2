@@ -157,8 +157,10 @@ func (h *Handlers) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	// Authenticate user
 	user, err := database.AuthenticateUser(loginData.Identifier, loginData.Password)
 	if err != nil {
-		if err == database.ErrInvalidCredentials {
-			http.Error(w, "Invalid credentials", http.StatusUnauthorized)
+		if err == database.ErrUserNotFound {
+			http.Error(w, "User does not exist", http.StatusUnauthorized)
+		} else if err == database.ErrInvalidCredentials {
+			http.Error(w, "Invalid password", http.StatusUnauthorized)
 		} else {
 			http.Error(w, "Authentication error", http.StatusInternalServerError)
 		}

@@ -50,7 +50,7 @@ func AuthenticateUser(identifier, password string) (*models.User, error) {
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, ErrInvalidCredentials
+			return nil, ErrUserNotFound
 		}
 		return nil, err
 	}
