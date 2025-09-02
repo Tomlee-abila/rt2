@@ -34,6 +34,14 @@ window.Auth = {
             if (response.ok) {
                 const user = await response.json();
                 ForumApp.currentUser = user;
+
+                // Clear any previous error messages
+                const errorDiv = document.getElementById('login-error');
+                if (errorDiv) {
+                    errorDiv.textContent = '';
+                    errorDiv.classList.add('hidden');
+                }
+
                 DOM.loginModal.classList.add('hidden');
                 showLoggedInUI();
                 Posts.loadPosts();
@@ -42,11 +50,28 @@ window.Auth = {
                 return true;
             } else {
                 const error = await response.text();
-                showNotification(error || 'Invalid credentials', 'error');
+
+                // Show specific error message in the login modal
+                const errorDiv = document.getElementById('login-error');
+                if (errorDiv) {
+                    errorDiv.textContent = error || 'Login failed';
+                    errorDiv.classList.remove('hidden');
+                }
+
+                // Also show notification for consistency
+                showNotification(error || 'Login failed', 'error');
                 return false;
             }
         } catch (error) {
             console.error('Login error:', error);
+
+            // Show network error in the login modal
+            const errorDiv = document.getElementById('login-error');
+            if (errorDiv) {
+                errorDiv.textContent = 'Network error. Please try again.';
+                errorDiv.classList.remove('hidden');
+            }
+
             showNotification('Login failed: Network error', 'error');
             return false;
         }
@@ -165,6 +190,23 @@ window.Auth = {
 
         document.getElementById('login-password')?.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') this.handleLogin();
+        });
+
+        // Clear login error when user starts typing
+        document.getElementById('login-identifier')?.addEventListener('input', () => {
+            const errorDiv = document.getElementById('login-error');
+            if (errorDiv) {
+                errorDiv.textContent = '';
+                errorDiv.classList.add('hidden');
+            }
+        });
+
+        document.getElementById('login-password')?.addEventListener('input', () => {
+            const errorDiv = document.getElementById('login-error');
+            if (errorDiv) {
+                errorDiv.textContent = '';
+                errorDiv.classList.add('hidden');
+            }
         });
 
         document.getElementById('register-confirm-password')?.addEventListener('keypress', (e) => {
