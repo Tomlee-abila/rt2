@@ -40,6 +40,12 @@ func setupRoutes(handlers *api.Handlers) {
 	// Main page
 	http.HandleFunc("/", handlers.ServeHome)
 
+	// Favicon handler to prevent 404 errors
+	http.HandleFunc("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "image/x-icon")
+		w.WriteHeader(http.StatusNoContent) // 204 No Content
+	})
+
 	// API routes
 	http.HandleFunc("/api/register", handlers.HandleRegister)
 	http.HandleFunc("/api/login", handlers.HandleLogin)
