@@ -1,7 +1,7 @@
 window.Auth = {
     async checkAuthStatus() {
         try {
-            const response = await fetch('/api/users/me');
+            const response = await fetch('/api/users/me', { credentials: 'include' });
             if (response.ok) {
                 const user = await response.json();
                 ForumApp.currentUser = user;
