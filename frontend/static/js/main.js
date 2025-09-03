@@ -87,7 +87,8 @@ function showLoggedInUI() {
     // Safely update username displays if they exist
     const usernameDisplay = document.getElementById('username-display');
     if (usernameDisplay) usernameDisplay.textContent = ForumApp.currentUser?.nickname || 'User';
-    document.getElementById('floating-logout')?.classList.remove('hidden');
+    document.getElementById('online-count').classList.remove('hidden');
+    // Safely update avatar if it exists
     const avatar = document.getElementById('user-avatar');
     if (avatar) {
         avatar.className = `w-8 h-8 rounded-full bg-${ForumApp.currentUser?.avatarColor || 'blue-500'} flex items-center justify-center text-white`;
