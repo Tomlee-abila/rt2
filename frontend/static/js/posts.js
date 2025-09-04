@@ -9,6 +9,7 @@ window.Posts = {
             const response = await fetch(url, { credentials: 'include' });
             if (response.ok) {
                 const posts = await response.json();
+                showNotification('Posts loaded successfully!');
                 this.displayPosts(posts);
             } else {
                 showNotification('Failed to load posts', 'error');
