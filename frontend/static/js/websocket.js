@@ -82,6 +82,7 @@ window.WebSocketClient = {
     handleOnlineUsers(data) {
         ForumApp.onlineUsers = data.users || [];
         updateOnlineCount();
+        updateOnlineUsersList();
     },
 
     sendPrivateMessage(recipientId, content) {

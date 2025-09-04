@@ -127,6 +127,51 @@ function updateOnlineCount() {
     });
 }
 
+function updateOnlineUsersList() {
+    const onlineUsersList = document.getElementById('online-users-list');
+    if (!onlineUsersList) return;
+
+    // Clear existing list
+    onlineUsersList.innerHTML = '';
+
+    // Get only online users
+    const onlineUsers = ForumApp.onlineUsers.filter(u => u.isOnline);
+
+    if (onlineUsers.length === 0) {
+        const li = document.createElement('li');
+        li.className = 'text-sm text-gray-500 italic';
+        li.textContent = 'No users online';
+        onlineUsersList.appendChild(li);
+        return;
+    }
+
+    // Add each online user
+    onlineUsers.forEach(user => {
+        const li = document.createElement('li');
+        li.className = 'flex items-center space-x-2 p-2 hover:bg-gray-50 rounded-md cursor-pointer';
+        li.innerHTML = `
+            <div class="w-6 h-6 rounded-full bg-${user.avatarColor || 'blue-500'} flex items-center justify-center text-xs text-white">
+                ${user.nickname.substring(0, 2).toUpperCase()}
+            </div>
+            <span class="text-sm text-gray-700">${escapeHtml(user.nickname)}</span>
+            <div class="w-2 h-2 bg-green-500 rounded-full ml-auto" title="Online"></div>
+        `;
+
+        // Add click handler to start private chat
+        li.addEventListener('click', () => {
+            if (!ForumApp.currentUser) {
+                DOM.loginModal.classList.remove('hidden');
+                return;
+            }
+            if (user.id !== ForumApp.currentUser.id) {
+                Messages.startChat(user.id, user.nickname);
+            }
+        });
+
+        onlineUsersList.appendChild(li);
+    });
+}
+
 function loadConversations() {
     const conversationList = document.getElementById('conversation-list');
     const mobileConversationList = document.getElementById('mobile-conversation-list');
